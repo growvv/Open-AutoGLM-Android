@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,17 +52,41 @@ fun ChatScreen(
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // 当前应用显示
-        uiState.currentApp?.let { app ->
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant
+        // 顶部工具栏：当前应用显示和清理按钮
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "当前应用: $app",
-                    modifier = Modifier.padding(8.dp),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                // 当前应用显示
+                uiState.currentApp?.let { app ->
+                    Text(
+                        text = "当前应用: $app",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } ?: run {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+                
+                // 清理对话按钮
+                if (uiState.messages.isNotEmpty()) {
+                    IconButton(
+                        onClick = { viewModel.clearMessages() },
+                        enabled = !uiState.isLoading
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "清理对话",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
         

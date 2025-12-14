@@ -280,6 +280,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(taskCompletedMessage = null)
     }
     
+    /**
+     * 清理对话历史，开始新的会话
+     */
+    fun clearMessages() {
+        // 清空消息列表
+        _uiState.value = _uiState.value.copy(
+            messages = emptyList(),
+            error = null,
+            taskCompletedMessage = null
+        )
+        // 清空消息上下文
+        messageContext.clear()
+        Log.d("ChatViewModel", "已清理对话历史，开始新会话")
+    }
+    
     fun refreshModelClient() {
         viewModelScope.launch {
             val baseUrl = preferencesRepository.getBaseUrlSync()
