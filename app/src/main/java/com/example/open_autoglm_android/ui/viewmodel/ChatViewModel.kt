@@ -236,6 +236,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 messages = _uiState.value.messages + assistantMessage
             )
             
+            // 如果模型返回的是 finish，则直接结束，不再执行动作
+            val isFinishAction = response.action.contains("\"_metadata\":\"finish\"") ||
+                response.action.contains("\"_metadata\": \"finish\"") ||
+                response.action.lowercase().contains("finish(")
+            if (isFinishAction) {
+                val completionMessage = extractFinishMessage(response.action) ?: resultMessageFallback(response.action)
+                //accessibilityService.showToast(completionMessage)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    taskCompletedMessage = completionMessage
+                )
+                Log.d("ChatViewModel", "任务完成(无需执行动作): $completionMessage")
+                return
+            }
+            
             // 解析并执行动作
             val result = executor.execute(
                 response.action,
@@ -291,6 +306,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             error = "达到最大步数限制"
         )
         Log.w("ChatViewModel", "达到最大步数限制")
+    }
+    
+    /**
+     * 从模型返回的 finish 动作中提取 message
+     */
+    private fun extractFinishMessage(action: String): String? {
+        // JSON 形式: {"_metadata":"finish","message":"xxx"}
+        val jsonPattern = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"")
+        val jsonMatch = jsonPattern.find(action)
+        if (jsonMatch != null) return jsonMatch.groupValues[1]
+        
+        // 函数形式: finish(message="xxx") 或 finish(message='xxx')
+        val funcPattern = Regex("finish\\s*\\(\\s*message\\s*=\\s*['\"]([^'\"]+)['\"]\\s*\\)", RegexOption.IGNORE_CASE)
+        val funcMatch = funcPattern.find(action)
+        if (funcMatch != null) return funcMatch.groupValues[1]
+        
+        return null
+    }
+    
+    private fun resultMessageFallback(action: String): String {
+        // 默认兜底，保留部分动作文本
+        return if (action.length > 80) action.take(80) + "..." else action.ifBlank { "任务已完成" }
     }
     
     fun clearError() {
