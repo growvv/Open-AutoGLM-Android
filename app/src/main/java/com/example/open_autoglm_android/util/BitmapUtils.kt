@@ -1,7 +1,16 @@
 package com.example.open_autoglm_android.util
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
 import android.util.Log
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 
 object BitmapUtils {
     /**
@@ -35,12 +44,6 @@ object BitmapUtils {
             
             var blackPixels = 0
             var totalPixels = 0
-            var minR = 255
-            var minG = 255
-            var minB = 255
-            var maxR = 0
-            var maxG = 0
-            var maxB = 0
             
             for (y in 0 until targetBitmap.height step stepY) {
                 for (x in 0 until targetBitmap.width step stepX) {
@@ -48,14 +51,6 @@ object BitmapUtils {
                     val r = (pixel shr 16) and 0xFF
                     val g = (pixel shr 8) and 0xFF
                     val b = pixel and 0xFF
-                    
-                    // 记录 RGB 值的范围
-                    minR = minOf(minR, r)
-                    minG = minOf(minG, g)
-                    minB = minOf(minB, b)
-                    maxR = maxOf(maxR, r)
-                    maxG = maxOf(maxG, g)
-                    maxB = maxOf(maxB, b)
                     
                     // 如果 RGB 值都很低（小于 10），认为是黑色
                     if (r < 10 && g < 10 && b < 10) {
@@ -66,15 +61,7 @@ object BitmapUtils {
             }
             
             val blackRatio = blackPixels.toDouble() / totalPixels
-            Log.d("BitmapUtils", "截图检测: 尺寸=${targetBitmap.width}x${targetBitmap.height}, " +
-                    "采样点数=$totalPixels, 黑色像素=$blackPixels, 黑色比例=${String.format("%.2f%%", blackRatio * 100)}, " +
-                    "RGB范围: R[$minR-$maxR] G[$minG-$maxG] B[$minB-$maxB], " +
-                    "阈值=${String.format("%.2f%%", threshold * 100)}")
-            
             val isBlack = blackRatio >= threshold
-            if (isBlack) {
-                Log.w("BitmapUtils", "检测到截图是全黑的 (${String.format("%.2f%%", blackRatio * 100)} 黑色像素)")
-            }
             
             return isBlack
         } finally {
@@ -82,5 +69,82 @@ object BitmapUtils {
             accessibleBitmap?.recycle()
         }
     }
-}
 
+    /**
+     * 在图片上绘制点击点（渐变透明圆点）
+     */
+    fun drawTapMarker(bitmap: Bitmap, x: Float, y: Float): Bitmap {
+        val result = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(result)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        
+        val radius = maxOf(bitmap.width, bitmap.height) * 0.03f
+        
+        // 绘制多层渐变圆点
+        // 1. 外圈淡红色
+        paint.shader = RadialGradient(
+            x, y, radius,
+            intArrayOf(Color.argb(200, 255, 0, 0), Color.argb(0, 255, 0, 0)),
+            null, Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(x, y, radius, paint)
+        
+        // 2. 内圈亮红色
+        paint.shader = null
+        paint.color = Color.argb(255, 255, 0, 0)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 5f
+        canvas.drawCircle(x, y, radius * 0.4f, paint)
+        
+        paint.style = Paint.Style.FILL
+        canvas.drawCircle(x, y, 10f, paint)
+        
+        return result
+    }
+
+    /**
+     * 在图片上绘制滑动线条
+     */
+    fun drawSwipeMarker(bitmap: Bitmap, startX: Float, startY: Float, endX: Float, endY: Float): Bitmap {
+        val result = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(result)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        
+        // 绘制线条
+        paint.color = Color.RED
+        paint.strokeWidth = 10f
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.alpha = 180
+        canvas.drawLine(startX, startY, endX, endY, paint)
+        
+        // 绘制起点和终点
+        paint.style = Paint.Style.FILL
+        paint.alpha = 255
+        canvas.drawCircle(startX, startY, 15f, paint)
+        
+        // 终点画个小箭头或者圆圈
+        paint.color = Color.YELLOW
+        canvas.drawCircle(endX, endY, 15f, paint)
+        
+        return result
+    }
+
+    /**
+     * 保存 Bitmap 到私有目录并返回路径
+     */
+    fun saveBitmap(context: Context, bitmap: Bitmap): String? {
+        val fileName = "action_${UUID.randomUUID()}.jpg"
+        val file = File(context.getExternalFilesDir("action_images"), fileName)
+        
+        return try {
+            file.parentFile?.mkdirs()
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+            }
+            file.absolutePath
+        } catch (e: Exception) {
+            Log.e("BitmapUtils", "Failed to save bitmap", e)
+            null
+        }
+    }
+}

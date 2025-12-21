@@ -53,6 +53,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
             // 只有在签名配置存在时才使用
             if (signingConfigs.findByName("release")?.storeFile?.exists() == true) {
                 signingConfig = signingConfigs.getByName("release")

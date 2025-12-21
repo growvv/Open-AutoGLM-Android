@@ -1,15 +1,20 @@
 package com.example.open_autoglm_android.ui.screen
 
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Menu
@@ -22,15 +27,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.example.open_autoglm_android.data.Conversation
 import com.example.open_autoglm_android.ui.viewmodel.ChatViewModel
 import com.example.open_autoglm_android.ui.viewmodel.MessageRole
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -48,6 +60,12 @@ fun ChatScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     
     var userInput by remember { mutableStateOf("") }
+    
+    // 图片预览状态
+    var previewImageIndex by remember { mutableStateOf<Int?>(null) }
+    val allImageMessages = remember(uiState.messages) {
+        uiState.messages.filter { it.imagePath != null }
+    }
     
     // 同步 drawer 状态
     LaunchedEffect(uiState.isDrawerOpen) {
@@ -197,7 +215,15 @@ fun ChatScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.messages) { message ->
-                    ChatMessageItem(message = message)
+                    ChatMessageItem(
+                        message = message,
+                        onImageClick = { path ->
+                            val index = allImageMessages.indexOfFirst { it.imagePath == path }
+                            if (index != -1) {
+                                previewImageIndex = index
+                            }
+                        }
+                    )
                 }
                 
                 if (uiState.isLoading) {
@@ -303,6 +329,129 @@ fun ChatScreen(
                         ) {
                             Text("发送")
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // 全屏图片预览
+    previewImageIndex?.let { initialIndex ->
+        ImagePreviewDialog(
+            imageMessages = allImageMessages,
+            initialIndex = initialIndex,
+            onDismiss = { previewImageIndex = null }
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ImagePreviewDialog(
+    imageMessages: List<com.example.open_autoglm_android.ui.viewmodel.ChatMessage>,
+    initialIndex: Int,
+    onDismiss: () -> Unit
+) {
+    val pagerState = rememberPagerState(initialPage = initialIndex) {
+        imageMessages.size
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                pageSpacing = 16.dp,
+                beyondViewportPageCount = 1
+            ) { page ->
+                val message = imageMessages[page]
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = File(message.imagePath!!),
+                        contentDescription = "预览图片",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable(onClick = onDismiss),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
+
+            // 顶部信息栏
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .padding(top = 48.dp, start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 页码指示器
+                Surface(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "${pagerState.currentPage + 1} / ${imageMessages.size}",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+
+                // 关闭按钮
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "关闭",
+                        tint = Color.White
+                    )
+                }
+            }
+
+            // 底部动作信息
+            val currentMessage = imageMessages[pagerState.currentPage]
+            if (currentMessage.action != null) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "动作执行:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.LightGray
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = currentMessage.action,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            ),
+                            color = Color.White,
+                            maxLines = 5,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
@@ -439,16 +588,30 @@ fun ConversationItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ChatMessageItem(message: com.example.open_autoglm_android.ui.viewmodel.ChatMessage) {
+fun ChatMessageItem(
+    message: com.example.open_autoglm_android.ui.viewmodel.ChatMessage,
+    onImageClick: (String) -> Unit = {}
+) {
     val isUser = message.role == MessageRole.USER
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Card(
-            modifier = Modifier.widthIn(max = 280.dp),
+            modifier = Modifier
+                .widthIn(max = 280.dp)
+                .combinedClickable(
+                    onClick = { /* 点击消息暂不触发特定行为 */ },
+                    onLongClick = {
+                        clipboardManager.setText(AnnotatedString(message.content))
+                        Toast.makeText(context, "消息已复制到剪贴板", Toast.LENGTH_SHORT).show()
+                    }
+                ),
             colors = CardDefaults.cardColors(
                 containerColor = if (isUser) {
                     MaterialTheme.colorScheme.primaryContainer
@@ -489,6 +652,22 @@ fun ChatMessageItem(message: com.example.open_autoglm_android.ui.viewmodel.ChatM
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isUser) FontWeight.Normal else FontWeight.Medium
                 )
+                
+                // 动作图片回看 (新增)
+                if (message.imagePath != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    AsyncImage(
+                        model = File(message.imagePath),
+                        contentDescription = "动作截图",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onImageClick(message.imagePath) },
+                        contentScale = ContentScale.Crop
+                    )
+                }
                 
                 // 动作 JSON（如果是助手消息）
                 if (!isUser && message.action != null && message.action.contains("{")) {

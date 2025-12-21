@@ -5,8 +5,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
+import com.example.open_autoglm_android.data.InputMode
 import com.example.open_autoglm_android.service.AutoGLMAccessibilityService
 import com.example.open_autoglm_android.service.FloatingWindowService
+import com.example.open_autoglm_android.service.MyInputMethodService
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -14,9 +16,19 @@ import com.google.gson.stream.JsonReader
 import kotlinx.coroutines.delay
 import java.io.StringReader
 
+data class ActionDetail(
+    val type: String,
+    val x1: Float? = null,
+    val y1: Float? = null,
+    val x2: Float? = null,
+    val y2: Float? = null,
+    val text: String? = null
+)
+
 data class ExecuteResult(
     val success: Boolean,
-    val message: String? = null
+    val message: String? = null,
+    val actionDetail: ActionDetail? = null
 )
 
 class ActionExecutor(private val service: AutoGLMAccessibilityService) {
@@ -271,7 +283,7 @@ class ActionExecutor(private val service: AutoGLMAccessibilityService) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             service.startActivity(intent)
             delay(2000)
-            ExecuteResult(success = true)
+            ExecuteResult(success = true, actionDetail = ActionDetail("launch", text = appName))
         } catch (e: Exception) {
             ExecuteResult(success = false, message = "启动应用失败: ${e.message}")
         }
@@ -294,7 +306,11 @@ class ActionExecutor(private val service: AutoGLMAccessibilityService) {
                 val (absoluteX, absoluteY) = convertRelativeToAbsolute(listOf(array[0].asFloat, array[1].asFloat), screenWidth, screenHeight)
                 service.tap(absoluteX, absoluteY)
                 delay(500)
-                return ExecuteResult(success = true, message = "已点击坐标: ($absoluteX, $absoluteY)")
+                return ExecuteResult(
+                    success = true, 
+                    message = "已点击坐标: ($absoluteX, $absoluteY)",
+                    actionDetail = ActionDetail("tap", x1 = absoluteX, y1 = absoluteY)
+                )
             }
             return ExecuteResult(success = false, message = "坐标格式错误")
         } else {
@@ -302,10 +318,17 @@ class ActionExecutor(private val service: AutoGLMAccessibilityService) {
             if (text != null) {
                 val node = service.findNodeByText(text)
                 if (node != null) {
+                    val rect = android.graphics.Rect()
+                    node.getBoundsInScreen(rect)
+                    val x = rect.centerX().toFloat()
+                    val y = rect.centerY().toFloat()
                     val success = service.performClick(node)
                     node.recycle()
                     delay(500)
-                    return ExecuteResult(success = success)
+                    return ExecuteResult(
+                        success = success, 
+                        actionDetail = ActionDetail("tap", x1 = x, y1 = y, text = text)
+                    )
                 }
                 return ExecuteResult(success = false, message = "找不到元素: $text")
             }
@@ -315,14 +338,32 @@ class ActionExecutor(private val service: AutoGLMAccessibilityService) {
     
     private suspend fun type(actionObj: JsonObject): ExecuteResult {
         val text = actionObj.get("text")?.asString ?: return ExecuteResult(success = false, message = "Type 操作缺少 text 参数")
+        
+        // 如果是 IME 模式且已启用，直接尝试输入，不需要找输入框
+        if (service.currentInputMode == InputMode.IME && MyInputMethodService.isEnabled()) {
+            val success = MyInputMethodService.typeText(text)
+            if (success) {
+                delay(500)
+                return ExecuteResult(success = true, actionDetail = ActionDetail("type", text = text))
+            }
+            Log.w("ActionExecutor", "IME 直接输入失败，尝试寻找输入框")
+        }
+
         val root = service.getRootNode() ?: return ExecuteResult(success = false, message = "无法获取根节点")
         val inputNode = findEditableNode(root)
         if (inputNode != null) {
+            val rect = android.graphics.Rect()
+            inputNode.getBoundsInScreen(rect)
+            val x = rect.centerX().toFloat()
+            val y = rect.centerY().toFloat()
             val success = service.setText(inputNode, text)
             inputNode.recycle()
             delay(500)
             root.recycle()
-            return ExecuteResult(success = success)
+            return ExecuteResult(
+                success = success, 
+                actionDetail = ActionDetail("type", x1 = x, y1 = y, text = text)
+            )
         }
         root.recycle()
         return ExecuteResult(success = false, message = "找不到输入框")
@@ -336,19 +377,23 @@ class ActionExecutor(private val service: AutoGLMAccessibilityService) {
         val (endX, endY) = convertRelativeToAbsolute(listOf(end[0].asFloat, end[1].asFloat), screenWidth, screenHeight)
         service.swipe(startX, startY, endX, endY)
         delay(500)
-        return ExecuteResult(success = true, message = "已滑动从 ($startX, $startY) 到 ($endX, $endY)")
+        return ExecuteResult(
+            success = true, 
+            message = "已滑动从 ($startX, $startY) 到 ($endX, $endY)",
+            actionDetail = ActionDetail("swipe", x1 = startX, y1 = startY, x2 = endX, y2 = endY)
+        )
     }
     
     private suspend fun back(): ExecuteResult {
         service.performBack()
         delay(500)
-        return ExecuteResult(success = true)
+        return ExecuteResult(success = true, actionDetail = ActionDetail("back"))
     }
     
     private suspend fun home(): ExecuteResult {
         service.performHome()
         delay(500)
-        return ExecuteResult(success = true)
+        return ExecuteResult(success = true, actionDetail = ActionDetail("home"))
     }
     
     private suspend fun longPress(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ExecuteResult {
@@ -357,7 +402,11 @@ class ActionExecutor(private val service: AutoGLMAccessibilityService) {
         val (x, y) = convertRelativeToAbsolute(listOf(element[0].asFloat, element[1].asFloat), screenWidth, screenHeight)
         service.longPress(x, y)
         delay(800)
-        return ExecuteResult(success = true, message = "已长按坐标: ($x, $y)")
+        return ExecuteResult(
+            success = true, 
+            message = "已长按坐标: ($x, $y)",
+            actionDetail = ActionDetail("longpress", x1 = x, y1 = y)
+        )
     }
     
     private suspend fun doubleTap(actionObj: JsonObject, screenWidth: Int, screenHeight: Int): ExecuteResult {
@@ -368,13 +417,17 @@ class ActionExecutor(private val service: AutoGLMAccessibilityService) {
         delay(100)
         service.tap(x, y)
         delay(500)
-        return ExecuteResult(success = true, message = "已双击坐标: ($x, $y)")
+        return ExecuteResult(
+            success = true, 
+            message = "已双击坐标: ($x, $y)",
+            actionDetail = ActionDetail("doubletap", x1 = x, y1 = y)
+        )
     }
     
     private suspend fun wait(actionObj: JsonObject): ExecuteResult {
         val durationMs = parseDurationMillis(actionObj.get("duration"))
         delay(durationMs)
-        return ExecuteResult(success = true, message = "已等待 ${durationMs}ms")
+        return ExecuteResult(success = true, message = "已等待 ${durationMs}ms", actionDetail = ActionDetail("wait"))
     }
 
     private fun parseDurationMillis(durationElement: JsonElement?): Long {

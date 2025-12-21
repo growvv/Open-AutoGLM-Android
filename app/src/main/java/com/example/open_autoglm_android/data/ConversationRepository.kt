@@ -31,6 +31,7 @@ data class SavedChatMessage(
     val content: String,
     val thinking: String? = null,
     val action: String? = null,
+    val imagePath: String? = null, // 新增：保存标记过动作的截图路径
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -142,6 +143,18 @@ class ConversationRepository(private val context: Context) {
      * 删除对话
      */
     suspend fun deleteConversation(conversationId: String) {
+        // 删除该对话关联的所有图片
+        _conversations.value.find { it.id == conversationId }?.messages?.forEach { msg ->
+            msg.imagePath?.let { path ->
+                try {
+                    val file = File(path)
+                    if (file.exists()) file.delete()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
         _conversations.value = _conversations.value.filter { it.id != conversationId }
         
         // 如果删除的是当前对话，切换到最近的对话
@@ -166,4 +179,3 @@ class ConversationRepository(private val context: Context) {
         saveConversations()
     }
 }
-
