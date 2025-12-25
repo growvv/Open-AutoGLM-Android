@@ -1,5 +1,7 @@
 package com.example.open_autoglm_android.ui.screen
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -26,14 +28,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.getSystemService
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -58,9 +59,8 @@ fun ChatScreen(
 
     // 图片预览状态
     var previewImageIndex by remember { mutableStateOf<Int?>(null) }
-    val allImageMessages = remember(uiState.messages) {
-        uiState.messages.filter { it.imagePath != null }
-    }
+    val allImageMessages =
+        remember(uiState.messages) { uiState.messages.filter { it.imagePath != null } }
 
     // 显示任务完成 toast
     LaunchedEffect(uiState.taskCompletedMessage) {
@@ -77,9 +77,7 @@ fun ChatScreen(
         }
     }
 
-    Column(modifier = modifier
-        .fillMaxSize()
-        .imePadding()) {
+    Column(modifier = modifier.fillMaxSize()) {
 
         // 错误提示
         uiState.error?.let { error ->
@@ -87,9 +85,10 @@ fun ChatScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
             ) {
                 Row(
                     modifier = Modifier
@@ -104,9 +103,7 @@ fun ChatScreen(
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.weight(1f)
                     )
-                    TextButton(onClick = { viewModel.clearError() }) {
-                        Text("关闭")
-                    }
+                    TextButton(onClick = { viewModel.clearError() }) { Text("关闭") }
                 }
             }
         }
@@ -114,14 +111,15 @@ fun ChatScreen(
         // 消息列表
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(uiState.messages) { message ->
+            items(uiState.messages, key = { it.id }) { message ->
                 ChatMessageItem(
                     message = message,
                     onImageClick = { path ->
@@ -140,12 +138,15 @@ fun ChatScreen(
                         horizontalArrangement = Arrangement.Start
                     ) {
                         Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (uiState.isPaused)
-                                    Color(0xFFFFF9C4) // 浅黄色背景表示暂停
-                                else
-                                    MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            colors =
+                                CardDefaults.cardColors(
+                                    containerColor =
+                                        if (uiState.isPaused)
+                                            Color(0xFFFFF9C4) // 浅黄色背景表示暂停
+                                        else
+                                            MaterialTheme.colorScheme
+                                                .surfaceVariant
+                                )
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -166,7 +167,9 @@ fun ChatScreen(
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("正在执行步骤 ${uiState.messages.filter { it.role == MessageRole.ASSISTANT }.size + 1}...")
+                                    Text(
+                                        "正在执行步骤 ${uiState.messages.filter { it.role == MessageRole.ASSISTANT }.size + 1}..."
+                                    )
                                 }
                             }
                         }
@@ -175,25 +178,22 @@ fun ChatScreen(
             }
         }
 
-        // 输入框
         Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shadowElevation = 8.dp
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding(), shadowElevation = 8.dp
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp)
-                    .navigationBarsPadding(),
+                    .padding(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = userInput,
                     onValueChange = { userInput = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .imeNestedScroll(),
+                    modifier = Modifier.weight(1f),
                     placeholder = { Text("输入任务描述...") },
                     enabled = !uiState.isLoading,
                     maxLines = 3
@@ -205,12 +205,15 @@ fun ChatScreen(
                         // 暂停/继续按钮
                         FilledIconButton(
                             onClick = { viewModel.togglePause() },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Color(0xFFFBC02D) // 黄色
-                            )
+                            colors =
+                                IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = Color(0xFFFBC02D) // 黄色
+                                )
                         ) {
                             Icon(
-                                imageVector = if (uiState.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                imageVector =
+                                    if (uiState.isPaused) Icons.Default.PlayArrow
+                                    else Icons.Default.Pause,
                                 contentDescription = if (uiState.isPaused) "继续" else "暂停"
                             )
                         }
@@ -218,9 +221,10 @@ fun ChatScreen(
                         // 停止按钮
                         FilledIconButton(
                             onClick = { viewModel.stopTask() },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            )
+                            colors =
+                                IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.error
+                                )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Stop,
@@ -236,9 +240,7 @@ fun ChatScreen(
                             userInput = ""
                         },
                         enabled = userInput.isNotBlank()
-                    ) {
-                        Text("发送")
-                    }
+                    ) { Text("发送") }
                 }
             }
         }
@@ -261,16 +263,15 @@ fun ImagePreviewDialog(
     initialIndex: Int,
     onDismiss: () -> Unit
 ) {
-    val pagerState = rememberPagerState(initialPage = initialIndex) {
-        imageMessages.size
-    }
+    val pagerState = rememberPagerState(initialPage = initialIndex) { imageMessages.size }
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
     ) {
         Box(
             modifier = Modifier
@@ -284,10 +285,7 @@ fun ImagePreviewDialog(
                 beyondViewportPageCount = 1
             ) { page ->
                 val message = imageMessages[page]
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AsyncImage(
                         model = File(message.imagePath!!),
                         contentDescription = "预览图片",
@@ -301,18 +299,16 @@ fun ImagePreviewDialog(
 
             // 顶部信息栏
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .padding(top = 48.dp, start = 16.dp, end = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .padding(top = 48.dp, start = 16.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 页码指示器
-                Surface(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
+                Surface(color = Color.Black.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp)) {
                     Text(
                         text = "${pagerState.currentPage + 1} / ${imageMessages.size}",
                         color = Color.White,
@@ -324,10 +320,11 @@ fun ImagePreviewDialog(
                 // 关闭按钮
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.background(
-                        Color.Black.copy(alpha = 0.5f),
-                        RoundedCornerShape(24.dp)
-                    )
+                    modifier =
+                        Modifier.background(
+                            Color.Black.copy(alpha = 0.5f),
+                            RoundedCornerShape(24.dp)
+                        )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -341,10 +338,11 @@ fun ImagePreviewDialog(
             val currentMessage = imageMessages[pagerState.currentPage]
             if (currentMessage.action != null) {
                 Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
                     color = Color.Black.copy(alpha = 0.6f),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -357,9 +355,12 @@ fun ImagePreviewDialog(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = currentMessage.action,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                            ),
+                            style =
+                                MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily =
+                                        androidx.compose.ui.text.font.FontFamily
+                                            .Monospace
+                                ),
                             color = Color.White,
                             maxLines = 5,
                             overflow = TextOverflow.Ellipsis
@@ -379,12 +380,8 @@ fun ConversationDrawer(
     onNewConversation: () -> Unit,
     onDeleteConversation: (String) -> Unit
 ) {
-    ModalDrawerSheet(
-        modifier = Modifier.width(280.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxHeight()
-        ) {
+    ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
+        Column(modifier = Modifier.fillMaxHeight()) {
             // 标题和新建按钮
             Row(
                 modifier = Modifier
@@ -399,10 +396,7 @@ fun ConversationDrawer(
                     fontWeight = FontWeight.Bold
                 )
                 IconButton(onClick = onNewConversation) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "新建对话"
-                    )
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "新建对话")
                 }
             }
 
@@ -443,31 +437,30 @@ fun ConversationItem(
             title = { Text("删除对话") },
             text = { Text("确定要删除这个对话吗？") },
             confirmButton = {
-                TextButton(onClick = {
-                    onDelete()
-                    showDeleteDialog = false
-                }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
-                }
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteDialog = false
+                    }
+                ) { Text("删除", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("取消") }
             }
         )
     }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface
-            )
-            .clickable(onClick = onClick)
-            .padding(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surface
+                )
+                .clickable(onClick = onClick)
+                .padding(12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -486,10 +479,7 @@ fun ConversationItem(
             )
         }
 
-        IconButton(
-            onClick = { showDeleteDialog = true },
-            modifier = Modifier.size(32.dp)
-        ) {
+        IconButton(onClick = { showDeleteDialog = true }, modifier = Modifier.size(32.dp)) {
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = "删除",
@@ -508,33 +498,41 @@ fun ChatMessageItem(
 ) {
     val isUser = message.role == MessageRole.USER
     val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Card(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .combinedClickable(
-                    onClick = { /* 点击消息暂不触发特定行为 */ },
-                    onLongClick = {
-                        clipboardManager.setText(AnnotatedString(message.content))
-                        Toast.makeText(context, "消息已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                    }
-                ),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isUser) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                }
-            )
+            modifier =
+                Modifier
+                    .widthIn(max = 280.dp)
+                    .combinedClickable(
+                        onClick = { /* 点击消息暂不触发特定行为 */ },
+                        onLongClick = {
+                            val clipboardManager =
+                                context.getSystemService<ClipboardManager>()
+                            val clip =
+                                ClipData.newPlainText(
+                                    "message",
+                                    message.content
+                                )
+                            clipboardManager?.setPrimaryClip(clip)
+                            Toast.makeText(context, "消息已复制到剪贴板", Toast.LENGTH_SHORT)
+                                .show()
+                        }
+                    ),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor =
+                        if (isUser) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        }
+                )
         ) {
-            Column(
-                modifier = Modifier.padding(12.dp)
-            ) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 // 思考过程（可展开）
                 if (!isUser && !message.thinking.isNullOrBlank()) {
                     var expanded by remember { mutableStateOf(false) }
@@ -572,11 +570,12 @@ fun ChatMessageItem(
                     AsyncImage(
                         model = File(message.imagePath),
                         contentDescription = "动作截图",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .clickable { onImageClick(message.imagePath) },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { onImageClick(message.imagePath) },
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -590,9 +589,12 @@ fun ChatMessageItem(
                     ) {
                         Text(
                             text = message.action,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                            ),
+                            style =
+                                MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily =
+                                        androidx.compose.ui.text.font.FontFamily
+                                            .Monospace
+                                ),
                             modifier = Modifier.padding(8.dp)
                         )
                     }

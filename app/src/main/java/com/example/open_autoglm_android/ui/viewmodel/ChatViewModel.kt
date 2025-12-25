@@ -672,6 +672,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (!msg.thinking.isNullOrBlank()) {
                         append("<thinking>\n${msg.thinking}\n</thinking>\n")
                     }
+                    if (!msg.action.isNullOrBlank()) {
+                        append("<action>\n${msg.action}\n</action>\n")
+                    }
                     append(msg.content)
                     append("\n\n" + "-".repeat(20) + "\n\n")
                 }
