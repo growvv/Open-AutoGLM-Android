@@ -86,7 +86,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 初始化 ModelClient
             val baseUrl = preferencesRepository.getBaseUrlSync()
             val apiKey = preferencesRepository.getApiKeySync() ?: "EMPTY"
-            modelClient = ModelClient(baseUrl, apiKey)
+            modelClient = ModelClient(getApplication(), baseUrl, apiKey)
             
             // 初始化 ActionExecutor
             AutoGLMAccessibilityService.getInstance()?.let { service ->
@@ -278,7 +278,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 
-                modelClient = ModelClient(baseUrl, apiKey)
+                modelClient = ModelClient(getApplication(), baseUrl, apiKey)
                 actionExecutor = ActionExecutor(accessibilityService)
                 
                 // 清空消息上下文，开始新的任务
@@ -741,7 +741,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val baseUrl = preferencesRepository.getBaseUrlSync()
             val apiKey = preferencesRepository.getApiKeySync() ?: "EMPTY"
-            modelClient = ModelClient(baseUrl, apiKey)
+            modelClient = ModelClient(getApplication(), baseUrl, apiKey)
         }
     }
 
