@@ -14,7 +14,6 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -23,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -33,7 +33,6 @@ import com.example.open_autoglm_android.navigation.Screen
 import com.example.open_autoglm_android.ui.screen.AdvancedAuthScreen
 import com.example.open_autoglm_android.ui.screen.AppsScreen
 import com.example.open_autoglm_android.ui.screen.MainScreen
-import com.example.open_autoglm_android.ui.screen.PromptLogScreen
 import com.example.open_autoglm_android.ui.screen.SettingsScreen
 import com.example.open_autoglm_android.ui.theme.OpenAutoGLMAndroidTheme
 import com.example.open_autoglm_android.ui.viewmodel.AppsViewModel
@@ -109,25 +108,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                 }
                             )
                             NavigationBarItem(
-                                icon = {
-                                    Icon(
-                                        Icons.Default.Description,
-                                        contentDescription = "日志"
-                                    )
-                                },
-                                label = { Text("日志") },
-                                selected = selectedTab == Screen.PromptLog,
-                                onClick = {
-                                    selectedTab = Screen.PromptLog
-                                    if (navController.currentDestination?.route != Screen.PromptLog.name) {
-                                        navController.navigate(Screen.PromptLog.name) {
-                                            popUpTo(Screen.Main.name) { inclusive = false }
-                                            launchSingleTop = true
-                                        }
-                                    }
-                                }
-                            )
-                            NavigationBarItem(
+                                modifier = Modifier.testTag("nav_settings"),
                                 icon = {
                                     Icon(
                                         Icons.Default.Settings,
@@ -157,15 +138,17 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                             .consumeWindowInsets(innerPadding)
                     ) {
                         composable(Screen.Main.name) {
-                            MainScreen()
-                        }
-                        composable(Screen.PromptLog.name) {
-                            Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = MaterialTheme.colorScheme.background
-                            ) {
-                                PromptLogScreen()
-                            }
+                            MainScreen(
+                                onNavigateToSettings = {
+                                    selectedTab = Screen.Settings
+                                    if (navController.currentDestination?.route != Screen.Settings.name) {
+                                        navController.navigate(Screen.Settings.name) {
+                                            popUpTo(Screen.Main.name) { inclusive = false }
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                }
+                            )
                         }
                         composable(Screen.Apps.name) {
                             Surface(
@@ -292,6 +275,10 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
         Shizuku.removeRequestPermissionResultListener(this)
         Shizuku.removeBinderReceivedListener(this)
         Shizuku.removeBinderDeadListener(this)
-        Shizuku.unbindUserService(userServiceArgs, this, true)
+        try {
+            Shizuku.unbindUserService(userServiceArgs, this, true)
+        } catch (_: IllegalStateException) {
+            // Shizuku binder may not be available (e.g. during instrumentation tests)
+        }
     }
 }

@@ -1,14 +1,13 @@
 package com.example.open_autoglm_android.ui.screen
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.widget.Toast
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -23,6 +22,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,17 +30,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.getSystemService
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.open_autoglm_android.data.database.Conversation
+import com.example.open_autoglm_android.data.database.ConversationStatus
 import com.example.open_autoglm_android.ui.viewmodel.ChatViewModel
 import com.example.open_autoglm_android.ui.viewmodel.MessageRole
+import com.example.open_autoglm_android.ui.viewmodel.StepTiming
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -50,10 +52,11 @@ import java.util.*
 fun ChatScreen(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = viewModel(),
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     var userInput by remember { mutableStateOf("") }
 
@@ -62,15 +65,6 @@ fun ChatScreen(
     val allImageMessages =
         remember(uiState.messages) { uiState.messages.filter { it.imagePath != null } }
 
-    // 显示任务完成 toast
-    LaunchedEffect(uiState.taskCompletedMessage) {
-        uiState.taskCompletedMessage?.let { message ->
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            // 清除消息，避免重复显示
-            viewModel.clearTaskCompletedMessage()
-        }
-    }
-
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
@@ -78,37 +72,15 @@ fun ChatScreen(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
+        val taskMessage =
+            remember(uiState.messages) { uiState.messages.firstOrNull { it.role == MessageRole.USER } }
+        val stepMessages =
+            remember(uiState.messages) { uiState.messages.filter { it.role == MessageRole.ASSISTANT } }
+        val timeFormatter = remember { SimpleDateFormat("MM/dd HH:mm:ss", Locale.getDefault()) }
+        val startedAt = uiState.taskStartedAt ?: taskMessage?.timestamp
+        val endedAt = uiState.taskEndedAt
 
-        // 错误提示
-        uiState.error?.let { error ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                colors =
-                    CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { viewModel.clearError() }) { Text("关闭") }
-                }
-            }
-        }
-
-        // 消息列表
+        // 信息流（任务 -> 步骤 -> 结果）
         LazyColumn(
             state = listState,
             modifier =
@@ -116,64 +88,86 @@ fun ChatScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(uiState.messages, key = { it.id }) { message ->
-                ChatMessageItem(
+            item(key = "task_header") {
+                TaskHeaderCard(
+                    taskText = taskMessage?.content,
+                    startedAt = startedAt,
+                    formatter = timeFormatter,
+                    status = uiState.taskStatus
+                )
+            }
+
+            itemsIndexed(stepMessages, key = { _, m -> m.id }) { index, message ->
+                StepCard(
+                    stepNumber = index + 1,
                     message = message,
+                    stepTiming = uiState.stepTimings.firstOrNull { it.step == index },
                     onImageClick = { path ->
-                        val index = allImageMessages.indexOfFirst { it.imagePath == path }
-                        if (index != -1) {
-                            previewImageIndex = index
-                        }
+                        val imageIndex = allImageMessages.indexOfFirst { it.imagePath == path }
+                        if (imageIndex != -1) previewImageIndex = imageIndex
                     }
                 )
             }
 
             if (uiState.isLoading) {
                 item {
-                    Row(
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start
+                        colors =
+                            CardDefaults.cardColors(
+                                containerColor =
+                                    if (uiState.isPaused) Color(0xFFFFF9C4)
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                            )
                     ) {
-                        Card(
-                            colors =
-                                CardDefaults.cardColors(
-                                    containerColor =
-                                        if (uiState.isPaused)
-                                            Color(0xFFFFF9C4) // 浅黄色背景表示暂停
-                                        else
-                                            MaterialTheme.colorScheme
-                                                .surfaceVariant
-                                )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (uiState.isPaused) {
-                                    Icon(
-                                        imageVector = Icons.Default.Pause,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = Color(0xFFFBC02D)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("任务已暂停", color = Color(0xFF827717))
-                                } else {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        "正在执行步骤 ${uiState.messages.filter { it.role == MessageRole.ASSISTANT }.size + 1}..."
-                                    )
-                                }
+                            if (uiState.isPaused) {
+                                Icon(
+                                    imageVector = Icons.Default.Pause,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = Color(0xFFFBC02D)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "任务已暂停",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Color(0xFF827717)
+                                )
+                            } else {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "执行中…（步骤 ${stepMessages.size + 1}）",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
                         }
                     }
+                }
+            }
+
+            val showResultCard =
+                !uiState.isLoading &&
+                    uiState.taskStatus != ConversationStatus.RUNNING &&
+                    (endedAt != null || !uiState.taskResultMessage.isNullOrBlank())
+            if (showResultCard) {
+                item(key = "task_result") {
+                    TaskResultCard(
+                        status = uiState.taskStatus,
+                        startedAt = startedAt,
+                        endedAt = endedAt,
+                        message = uiState.taskResultMessage
+                    )
                 }
             }
         }
@@ -186,7 +180,7 @@ fun ChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -194,7 +188,7 @@ fun ChatScreen(
                     value = userInput,
                     onValueChange = { userInput = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("输入任务描述...") },
+                    placeholder = { Text("输入任务描述...", style = MaterialTheme.typography.bodyLarge) },
                     enabled = !uiState.isLoading,
                     maxLines = 3
                 )
@@ -236,11 +230,11 @@ fun ChatScreen(
                     // 非加载中显示发送按钮
                     Button(
                         onClick = {
-                            viewModel.sendMessage(userInput)
-                            userInput = ""
+                            val started = viewModel.sendMessage(userInput)
+                            if (started) userInput = ""
                         },
                         enabled = userInput.isNotBlank()
-                    ) { Text("发送") }
+                    ) { Text("发送", style = MaterialTheme.typography.bodyLarge) }
                 }
             }
         }
@@ -254,6 +248,299 @@ fun ChatScreen(
             onDismiss = { previewImageIndex = null }
         )
     }
+
+    if (uiState.showAccessibilityEnableDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissAccessibilityEnableDialog() },
+            title = { Text("需要开启无障碍服务") },
+            text = { Text("执行任务需要无障碍服务权限，请前往“设置”页开启后再发送任务。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.dismissAccessibilityEnableDialog()
+                        try {
+                            val intent =
+                                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            onNavigateToSettings()
+                        }
+                    }
+                ) { Text("去开启") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissAccessibilityEnableDialog() }) { Text("取消") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun TaskHeaderCard(
+    taskText: String?,
+    startedAt: Long?,
+    formatter: SimpleDateFormat,
+    status: ConversationStatus
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "任务",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                if (startedAt != null) {
+                    Text(
+                        text = "开始：${formatter.format(Date(startedAt))}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            if (!taskText.isNullOrBlank()) {
+                Text(
+                    text = taskText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            } else {
+                Text(
+                    text = "尚未开始任务，输入描述后点击发送",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                )
+            }
+
+            if (status == ConversationStatus.RUNNING) {
+                Text(
+                    text = "状态：进行中",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepCard(
+    stepNumber: Int,
+    message: com.example.open_autoglm_android.ui.viewmodel.ChatMessage,
+    stepTiming: StepTiming?,
+    onImageClick: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "步骤 $stepNumber",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                stepTiming?.let {
+                    Text(
+                        text = "耗时 ${formatDuration(it.totalMs)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            val actionText = message.action ?: message.content
+            if (actionText.isNotBlank()) {
+                Surface(
+                    tonalElevation = 1.dp,
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Text(
+                        text = actionText,
+                        style =
+                            MaterialTheme.typography.bodyMedium.copy(
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            ),
+                        modifier = Modifier.padding(10.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            stepTiming?.let {
+                val breakdown =
+                    buildString {
+                        if (it.screenshotMs > 0) append("截图 ${formatDuration(it.screenshotMs)}  ")
+                        if (it.networkMs > 0) append("模型 ${formatDuration(it.networkMs)}  ")
+                        if (it.executionMs > 0) append("执行 ${formatDuration(it.executionMs)}")
+                    }.trim()
+                if (breakdown.isNotBlank()) {
+                    Text(
+                        text = breakdown,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            val thinking = message.thinking?.trim().orEmpty()
+            if (thinking.isNotEmpty()) {
+                ExpandableTextBlock(
+                    title = "思考过程",
+                    text = thinking,
+                    id = "thinking_${message.id}"
+                )
+            }
+
+            message.imagePath?.let { path ->
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "截图",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    AsyncImage(
+                        model = File(path),
+                        contentDescription = "步骤截图",
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 140.dp, max = 420.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onImageClick(path) },
+                        contentScale = ContentScale.Fit
+                    )
+                    Text(
+                        text = "点击图片可全屏查看",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandableTextBlock(
+    title: String,
+    text: String,
+    id: String
+) {
+    var expanded by rememberSaveable(id) { mutableStateOf(false) }
+
+    Surface(
+        tonalElevation = 0.dp,
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = if (expanded) "收起" else "展开",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            if (expanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = text,
+                    style =
+                        MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskResultCard(
+    status: ConversationStatus,
+    startedAt: Long?,
+    endedAt: Long?,
+    message: String?
+) {
+    val (containerColor, title) =
+        when (status) {
+            ConversationStatus.COMPLETED -> MaterialTheme.colorScheme.secondaryContainer to "任务完成"
+            ConversationStatus.ABORTED -> MaterialTheme.colorScheme.tertiaryContainer to "任务中止"
+            ConversationStatus.ENDED -> MaterialTheme.colorScheme.errorContainer to "任务结束"
+            ConversationStatus.RUNNING -> MaterialTheme.colorScheme.surfaceVariant to "任务进行中"
+            else -> MaterialTheme.colorScheme.surfaceVariant to "任务状态"
+        }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        val totalMs =
+            if (startedAt != null && endedAt != null && endedAt >= startedAt) endedAt - startedAt else null
+
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+
+            if (!message.isNullOrBlank()) {
+                Text(text = message, style = MaterialTheme.typography.bodyLarge)
+            }
+
+            totalMs?.let {
+                Text(
+                    text = "总耗时：${formatDuration(it)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Text(
+                text = "状态：${status.displayName()}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+private fun formatDuration(durationMs: Long): String {
+    if (durationMs < 1_000) return "${durationMs}ms"
+    val seconds = durationMs / 1_000.0
+    if (seconds < 60) return String.format(Locale.getDefault(), "%.1fs", seconds)
+    val totalSeconds = durationMs / 1_000
+    val minutes = totalSeconds / 60
+    val remainingSeconds = totalSeconds % 60
+    return "${minutes}分${remainingSeconds}秒"
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -391,12 +678,12 @@ fun ConversationDrawer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "对话列表",
+                    text = "任务列表",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 IconButton(onClick = onNewConversation) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = "新建对话")
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "新建任务")
                 }
             }
 
@@ -430,12 +717,14 @@ fun ConversationItem(
 ) {
     val dateFormat = remember { SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val status = remember(conversation.status) { ConversationStatus.fromRaw(conversation.status) }
+    val taskTimeMs = conversation.taskStartedAt ?: conversation.updatedAt
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除对话") },
-            text = { Text("确定要删除这个对话吗？") },
+            title = { Text("删除任务") },
+            text = { Text("确定要删除这个任务吗？") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -472,11 +761,21 @@ fun ConversationItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = dateFormat.format(Date(conversation.updatedAt)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = dateFormat.format(Date(taskTimeMs)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                if (status != ConversationStatus.IDLE) {
+                    Text(
+                        text = status.displayName(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         IconButton(onClick = { showDeleteDialog = true }, modifier = Modifier.size(32.dp)) {
@@ -486,120 +785,6 @@ fun ConversationItem(
                 modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun ChatMessageItem(
-    message: com.example.open_autoglm_android.ui.viewmodel.ChatMessage,
-    onImageClick: (String) -> Unit = {}
-) {
-    val isUser = message.role == MessageRole.USER
-    val context = LocalContext.current
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
-    ) {
-        Card(
-            modifier =
-                Modifier
-                    .widthIn(max = 280.dp)
-                    .combinedClickable(
-                        onClick = { /* 点击消息暂不触发特定行为 */ },
-                        onLongClick = {
-                            val clipboardManager =
-                                context.getSystemService<ClipboardManager>()
-                            val clip =
-                                ClipData.newPlainText(
-                                    "message",
-                                    message.content
-                                )
-                            clipboardManager?.setPrimaryClip(clip)
-                            Toast.makeText(context, "消息已复制到剪贴板", Toast.LENGTH_SHORT)
-                                .show()
-                        }
-                    ),
-            colors =
-                CardDefaults.cardColors(
-                    containerColor =
-                        if (isUser) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        }
-                )
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                // 思考过程（可展开）
-                if (!isUser && !message.thinking.isNullOrBlank()) {
-                    var expanded by remember { mutableStateOf(false) }
-
-                    TextButton(
-                        onClick = { expanded = !expanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (expanded) "收起思考过程" else "展开思考过程",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-
-                    if (expanded) {
-                        Text(
-                            text = message.thinking,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-                }
-
-                // 消息内容
-                Text(
-                    text = message.content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isUser) FontWeight.Normal else FontWeight.Medium
-                )
-
-                // 动作图片回看 (新增)
-                if (message.imagePath != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    AsyncImage(
-                        model = File(message.imagePath),
-                        contentDescription = "动作截图",
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 200.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable { onImageClick(message.imagePath) },
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                // 动作 JSON（如果是助手消息）
-                if (!isUser && message.action != null && message.action.contains("{")) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Text(
-                            text = message.action,
-                            style =
-                                MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily =
-                                        androidx.compose.ui.text.font.FontFamily
-                                            .Monospace
-                                ),
-                            modifier = Modifier.padding(8.dp)
-                        )
-                    }
-                }
-            }
         }
     }
 }

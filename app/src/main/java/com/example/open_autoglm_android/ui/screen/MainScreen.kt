@@ -28,7 +28,9 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    onNavigateToSettings: () -> Unit = {}
+) {
     val viewModel: ChatViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -61,7 +63,7 @@ fun MainScreen() {
                     }) {
                         Icon(
                             imageVector = Icons.Default.Menu,
-                            contentDescription = "对话列表"
+                            contentDescription = "任务列表"
                         )
                     }
                 },
@@ -74,7 +76,7 @@ fun MainScreen() {
                     )
                 }
             )
-            ChatScreen(viewModel = viewModel)
+            ChatScreen(viewModel = viewModel, onNavigateToSettings = onNavigateToSettings)
         }
     }
 }

@@ -3,6 +3,7 @@ package com.example.open_autoglm_android.data
 import android.content.Context
 import com.example.open_autoglm_android.data.database.AppDatabase
 import com.example.open_autoglm_android.data.database.Conversation
+import com.example.open_autoglm_android.data.database.ConversationStatus
 import com.example.open_autoglm_android.data.database.ConversationWithMessages
 import com.example.open_autoglm_android.data.database.SavedChatMessage
 import kotlinx.coroutines.CoroutineScope
@@ -58,7 +59,7 @@ class ConversationRepository(context: Context) {
     /**
      * 创建新对话
      */
-    suspend fun createConversation(title: String = "新对话"): Conversation {
+    suspend fun createConversation(title: String = "新任务"): Conversation {
         val conversation = Conversation(title = title)
         conversationDao.insertConversation(conversation)
         _currentConversationId.value = conversation.id
@@ -88,7 +89,11 @@ class ConversationRepository(context: Context) {
         val conversation = conversationDao.getConversationById(conversationId) ?: return
         
         // 更新对话标题（如果是新对话且有用户消息）
-        val newTitle = if (messages.isNotEmpty() && conversation.title == "新对话") {
+        val newTitle =
+            if (
+                messages.isNotEmpty() &&
+                    (conversation.title == "新对话" || conversation.title == "新任务")
+            ) {
             messages.firstOrNull { it.role == "USER" }?.content?.take(20) ?: conversation.title
         } else {
             conversation.title
@@ -109,6 +114,55 @@ class ConversationRepository(context: Context) {
         
         // 更新当前对话ID
         _currentConversationId.value = conversationId
+    }
+
+    /**
+     * 更新对话状态
+     */
+    suspend fun updateConversationStatus(conversationId: String, status: ConversationStatus) {
+        val conversation = conversationDao.getConversationById(conversationId) ?: return
+        val updatedConversation =
+            conversation.copy(
+                status = status.name,
+                updatedAt = System.currentTimeMillis()
+            )
+        conversationDao.updateConversation(updatedConversation)
+    }
+
+    /**
+     * 标记任务开始（写入开始时间并清空结束信息）
+     */
+    suspend fun markTaskStarted(conversationId: String, startedAt: Long) {
+        val conversation = conversationDao.getConversationById(conversationId) ?: return
+        val updatedConversation =
+            conversation.copy(
+                status = ConversationStatus.RUNNING.name,
+                taskStartedAt = startedAt,
+                taskEndedAt = null,
+                taskResultMessage = null,
+                updatedAt = System.currentTimeMillis()
+            )
+        conversationDao.updateConversation(updatedConversation)
+    }
+
+    /**
+     * 标记任务结束（写入结束时间与结果信息）
+     */
+    suspend fun markTaskFinished(
+        conversationId: String,
+        status: ConversationStatus,
+        endedAt: Long,
+        resultMessage: String?
+    ) {
+        val conversation = conversationDao.getConversationById(conversationId) ?: return
+        val updatedConversation =
+            conversation.copy(
+                status = status.name,
+                taskEndedAt = endedAt,
+                taskResultMessage = resultMessage,
+                updatedAt = System.currentTimeMillis()
+            )
+        conversationDao.updateConversation(updatedConversation)
     }
     
     /**

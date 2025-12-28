@@ -1,5 +1,8 @@
 package com.example.open_autoglm_android.ui.screen
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +34,7 @@ fun AppsScreen(
     modifier: Modifier = Modifier,
     viewModel: AppsViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val apps by viewModel.apps.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val showSystemApps by viewModel.showSystemApps.collectAsState()
@@ -162,16 +167,35 @@ fun AppsScreen(
             }
             
             // 底部提示信息
-            HorizontalDivider()
-            Text(
-                text = "部分机型可能需要手动授予获取应用列表的权限",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
+            if (!isLoading && apps.size < 3) {
+                HorizontalDivider()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "部分机型可能需要手动授予获取应用列表的权限",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            val intent =
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", context.packageName, null)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            context.startActivity(intent)
+                        }
+                    ) {
+                        Text("打开应用权限设置")
+                    }
+                }
+            }
         }
     }
     
@@ -286,4 +310,3 @@ fun AppListItem(
     
     HorizontalDivider()
 }
-

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.open_autoglm_android.data.ConversationRepository
 import com.example.open_autoglm_android.data.PreferencesRepository
 import com.example.open_autoglm_android.data.database.Conversation
+import com.example.open_autoglm_android.data.database.ConversationStatus
 import com.example.open_autoglm_android.data.database.SavedChatMessage
 import com.example.open_autoglm_android.domain.ActionExecutor
 import com.example.open_autoglm_android.domain.AppRegistry
@@ -18,6 +19,7 @@ import com.example.open_autoglm_android.service.AutoGLMAccessibilityService
 import com.example.open_autoglm_android.service.FloatingWindowService
 import com.example.open_autoglm_android.util.BitmapUtils
 import com.example.open_autoglm_android.util.DeviceUtils
+import com.example.open_autoglm_android.util.AccessibilityServiceHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,10 +51,16 @@ data class ChatUiState(
     val error: String? = null,
     val currentApp: String? = null,
     val taskCompletedMessage: String? = null,
+    val taskStatus: ConversationStatus = ConversationStatus.IDLE,
+    val taskStartedAt: Long? = null,
+    val taskEndedAt: Long? = null,
+    val taskResultMessage: String? = null,
+    val stepTimings: List<StepTiming> = emptyList(),
     val conversations: List<Conversation> = emptyList(),
     val currentConversationId: String? = null,
     val currentConversationTitle: String? = null,
-    val isDrawerOpen: Boolean = false
+    val isDrawerOpen: Boolean = false,
+    val showAccessibilityEnableDialog: Boolean = false
 )
 
 data class StepTiming(
@@ -85,7 +93,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             // 初始化 ModelClient
             val baseUrl = preferencesRepository.getBaseUrlSync()
-            val apiKey = preferencesRepository.getApiKeySync() ?: "EMPTY"
+            val apiKey = preferencesRepository.getApiKeySync().orEmpty()
             modelClient = ModelClient(getApplication(), baseUrl, apiKey)
             
             // 初始化 ActionExecutor
@@ -140,15 +148,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     private fun loadConversationMessages(conversationId: String?) {
+        stepTimings.clear()
         if (conversationId == null) {
-            _uiState.value = _uiState.value.copy(messages = emptyList())
+            _uiState.value =
+                _uiState.value.copy(
+                    messages = emptyList(),
+                    taskStatus = ConversationStatus.IDLE,
+                    taskStartedAt = null,
+                    taskEndedAt = null,
+                    taskResultMessage = null,
+                    stepTimings = emptyList()
+                )
             return
         }
         
         viewModelScope.launch {
             val conversationWithMessages = conversationRepository.getCurrentConversation()
             if (conversationWithMessages != null) {
-                val messages = conversationWithMessages.messages.map { saved ->
+                val conversation = conversationWithMessages.conversation
+                val loadedMessages = conversationWithMessages.messages.map { saved ->
                     ChatMessage(
                         id = saved.id,
                         role = if (saved.role == "USER") MessageRole.USER else MessageRole.ASSISTANT,
@@ -159,7 +177,31 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         timestamp = saved.timestamp
                     )
                 }
-                _uiState.value = _uiState.value.copy(messages = messages)
+
+                val current = _uiState.value
+                val shouldKeepInMemoryMessages =
+                    loadedMessages.isEmpty() &&
+                        current.isLoading &&
+                        current.currentConversationId == conversationId &&
+                        current.messages.isNotEmpty()
+
+                _uiState.value =
+                    current.copy(
+                        messages = if (shouldKeepInMemoryMessages) current.messages else loadedMessages,
+                        taskStatus =
+                            if (shouldKeepInMemoryMessages) current.taskStatus
+                            else ConversationStatus.fromRaw(conversation.status),
+                        taskStartedAt =
+                            if (shouldKeepInMemoryMessages) current.taskStartedAt
+                            else conversation.taskStartedAt,
+                        taskEndedAt =
+                            if (shouldKeepInMemoryMessages) current.taskEndedAt
+                            else conversation.taskEndedAt,
+                        taskResultMessage =
+                            if (shouldKeepInMemoryMessages) current.taskResultMessage
+                            else conversation.taskResultMessage,
+                        stepTimings = emptyList()
+                    )
             }
         }
     }
@@ -228,65 +270,87 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(isDrawerOpen = false)
     }
     
-    fun sendMessage(userInput: String) {
-        if (userInput.isBlank() || _uiState.value.isLoading) return
-        
-        val accessibilityService = AutoGLMAccessibilityService.getInstance()
-        if (accessibilityService == null) {
-            _uiState.value = _uiState.value.copy(
-                error = "无障碍服务未启用，请前往设置开启"
-            )
-            return
+    fun sendMessage(userInput: String): Boolean {
+        if (userInput.isBlank() || _uiState.value.isLoading) return false
+
+        val isEnabledInSettings =
+            AccessibilityServiceHelper.isAccessibilityServiceEnabled(getApplication())
+        if (!isEnabledInSettings) {
+            _uiState.value =
+                _uiState.value.copy(
+                    error = "无障碍服务未启用，请前往设置开启",
+                    showAccessibilityEnableDialog = true
+                )
+            return false
         }
-        
-        // 清空当前对话的消息（开始新任务）
-        _uiState.value = _uiState.value.copy(
-            messages = emptyList(),
-            taskCompletedMessage = null,
-            error = null,
-            isPaused = false
-        )
-        FloatingWindowService.getInstance()?.updatePauseStatus(false)
-        
-        val userMessage = ChatMessage(
-            id = System.currentTimeMillis().toString(),
-            role = MessageRole.USER,
-            content = userInput
-        )
-        
-        _uiState.value = _uiState.value.copy(
-            messages = _uiState.value.messages + userMessage,
-            isLoading = true,
-            error = null
-        )
-        
+
         currentTaskJob = viewModelScope.launch {
             try {
+                val conversationTitle = userInput.take(20).ifBlank { "新任务" }
+                val conversation = conversationRepository.createConversation(title = conversationTitle)
+
+                // 新任务启动：清空运行时上下文
+                messageContext.clear()
+                stepTimings.clear()
+                _uiState.value = _uiState.value.copy(stepTimings = emptyList())
+
+                FloatingWindowService.getInstance()?.updatePauseStatus(false)
+
+                val userMessage =
+                    ChatMessage(
+                        id = System.currentTimeMillis().toString(),
+                        role = MessageRole.USER,
+                        content = userInput
+                    )
+                val startedAt = userMessage.timestamp
+
+                _uiState.value =
+                    _uiState.value.copy(
+                        currentConversationId = conversation.id,
+                        currentConversationTitle = conversationTitle,
+                        messages = listOf(userMessage),
+                        isLoading = true,
+                        error = null,
+                        isPaused = false,
+                        taskStatus = ConversationStatus.RUNNING,
+                        taskStartedAt = startedAt,
+                        taskEndedAt = null,
+                        taskResultMessage = null,
+                        stepTimings = emptyList()
+                    )
+
+                // 保存用户消息（确保任务列表可回看）
+                saveCurrentMessages()
+
+                val accessibilityService = waitForAccessibilityServiceInstance()
+                if (accessibilityService == null) {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isLoading = false,
+                            taskStatus = ConversationStatus.ENDED,
+                            taskEndedAt = System.currentTimeMillis(),
+                            taskResultMessage = "无障碍服务已开启，但服务未连接。请返回桌面后重试，或重启应用。"
+                    )
+                    markCurrentConversationFinished(
+                        status = ConversationStatus.ENDED,
+                        endedAt = _uiState.value.taskEndedAt ?: System.currentTimeMillis(),
+                        resultMessage = _uiState.value.taskResultMessage
+                    )
+                    return@launch
+                }
+
+                markCurrentConversationStarted(startedAt)
+                
                 // 在每次任务开始前，重新加载 AppRegistry，以确保最新的映射配置被加载
                 AppRegistry.initialize(getApplication())
                 
                 // 重新初始化 ModelClient（以防配置变化）
                 val baseUrl = preferencesRepository.getBaseUrlSync()
-                val apiKey = preferencesRepository.getApiKeySync() ?: "EMPTY"
+                val apiKey = preferencesRepository.getApiKeySync().orEmpty()
                 val modelName = preferencesRepository.getModelNameSync()
-                
-                if (apiKey == "EMPTY" || apiKey.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "请先在设置页面配置 API Key"
-                    )
-                    return@launch
-                }
-                
+
                 modelClient = ModelClient(getApplication(), baseUrl, apiKey)
                 actionExecutor = ActionExecutor(accessibilityService)
-                
-                // 清空消息上下文，开始新的任务
-                messageContext.clear()
-                stepTimings.clear()
-                
-                // 保存用户消息
-                saveCurrentMessages()
                 
                 // 执行任务循环
                 executeTaskLoop(userInput, modelName)
@@ -294,16 +358,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: CancellationException) {
                 Log.d("ChatViewModel", "任务已取消")
                 FloatingWindowService.getInstance()?.updateStatus("已停止", 0, "用户手动停止")
+                val endedAt = System.currentTimeMillis()
+                _uiState.value =
+                    _uiState.value.copy(
+                        isLoading = false,
+                        isPaused = false,
+                        taskStatus = ConversationStatus.ABORTED,
+                        taskEndedAt = endedAt,
+                        taskResultMessage = "用户手动停止"
+                    )
+                markCurrentConversationFinished(
+                    status = ConversationStatus.ABORTED,
+                    endedAt = endedAt,
+                    resultMessage = "用户手动停止"
+                )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "错误: ${e.message}"
+                    taskStatus = ConversationStatus.ENDED,
+                    taskEndedAt = System.currentTimeMillis(),
+                    taskResultMessage = "错误: ${e.message}"
+                )
+                markCurrentConversationFinished(
+                    status = ConversationStatus.ENDED,
+                    endedAt = _uiState.value.taskEndedAt ?: System.currentTimeMillis(),
+                    resultMessage = _uiState.value.taskResultMessage
                 )
             } finally {
                 _uiState.value = _uiState.value.copy(isLoading = false)
                 currentTaskJob = null
             }
         }
+
+        return true
+    }
+
+    fun dismissAccessibilityEnableDialog() {
+        _uiState.value = _uiState.value.copy(showAccessibilityEnableDialog = false)
+    }
+
+    private suspend fun waitForAccessibilityServiceInstance(
+        timeoutMs: Long = 3_000
+    ): AutoGLMAccessibilityService? {
+        val startMs = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startMs < timeoutMs) {
+            AutoGLMAccessibilityService.getInstance()?.let { return it }
+            delay(150)
+        }
+        return AutoGLMAccessibilityService.getInstance()
     }
 
     /**
@@ -312,12 +414,38 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun stopTask() {
         currentTaskJob?.cancel()
         currentTaskJob = null
-        _uiState.value = _uiState.value.copy(
-            isLoading = false,
-            isPaused = false,
-            error = "任务已手动停止"
-        )
+        val endedAt = System.currentTimeMillis()
+        _uiState.value =
+            _uiState.value.copy(
+                isLoading = false,
+                isPaused = false,
+                taskStatus = ConversationStatus.ABORTED,
+                taskEndedAt = endedAt,
+                taskResultMessage = "任务已手动停止",
+                error = null
+            )
         FloatingWindowService.getInstance()?.updatePauseStatus(false)
+        viewModelScope.launch {
+            markCurrentConversationFinished(
+                status = ConversationStatus.ABORTED,
+                endedAt = endedAt,
+                resultMessage = "任务已手动停止"
+            )
+        }
+    }
+
+    private suspend fun markCurrentConversationStarted(startedAt: Long) {
+        val conversationId = _uiState.value.currentConversationId ?: return
+        conversationRepository.markTaskStarted(conversationId, startedAt)
+    }
+
+    private suspend fun markCurrentConversationFinished(
+        status: ConversationStatus,
+        endedAt: Long,
+        resultMessage: String?
+    ) {
+        val conversationId = _uiState.value.currentConversationId ?: return
+        conversationRepository.markTaskFinished(conversationId, status, endedAt, resultMessage)
     }
 
     /**
@@ -335,7 +463,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val executor = actionExecutor ?: return
         
         var stepCount = 0
-        val maxSteps = 50
+        val maxSteps = preferencesRepository.getMaxStepsSync().coerceIn(1, 500)
         
         var retryCount = 0
 
@@ -389,10 +517,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     "无法获取屏幕截图，请确保无障碍服务已启用并授予截图权限。如果已启用，请尝试重启应用。"
                 }
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = errorMessage
-                )
+                val endedAt = System.currentTimeMillis()
+                _uiState.value =
+                    _uiState.value.copy(
+                        isLoading = false,
+                        taskStatus = ConversationStatus.ENDED,
+                        taskEndedAt = endedAt,
+                        taskResultMessage = errorMessage
+                    )
+                markCurrentConversationFinished(ConversationStatus.ENDED, endedAt, errorMessage)
                 return
             }
             
@@ -406,10 +539,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         // 不返回，继续执行
                     } else {
                         // 在真机上，如果截图是全黑的，给出错误提示
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = "截图是全黑的，可能是应用设置了 FLAG_SECURE 防止截图，或者是应用正在启动中。请稍后再试。\n\n提示：如果在模拟器上运行，截图功能可能无法正常工作，建议在真机上测试。"
-                        )
+                        val endedAt = System.currentTimeMillis()
+                        val message =
+                            "截图是全黑的，可能是应用设置了 FLAG_SECURE 防止截图，或者是应用正在启动中。请稍后再试。\n\n提示：如果在模拟器上运行，截图功能可能无法正常工作，建议在真机上测试。"
+                        _uiState.value =
+                            _uiState.value.copy(
+                                isLoading = false,
+                                taskStatus = ConversationStatus.ENDED,
+                                taskEndedAt = endedAt,
+                                taskResultMessage = message
+                            )
+                        markCurrentConversationFinished(ConversationStatus.ENDED, endedAt, message)
                         return
                     }
                 }
@@ -485,6 +625,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     totalMs = stepTotalDuration
                 )
             )
+            _uiState.value = _uiState.value.copy(stepTimings = stepTimings.toList())
             
             // 如果执行成功且有截图，生成标记过的截图
             var savedImagePath: String? = null
@@ -534,10 +675,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (isFinishAction) {
                 val completionMessage = extractFinishMessage(response.action) ?: result.message ?: resultMessageFallback(response.action)
                 FloatingWindowService.getInstance()?.updateStatus("已完成", stepCount, completionMessage)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    taskCompletedMessage = completionMessage
-                )
+                val endedAt = System.currentTimeMillis()
+                _uiState.value =
+                    _uiState.value.copy(
+                        isLoading = false,
+                        taskStatus = ConversationStatus.COMPLETED,
+                        taskEndedAt = endedAt,
+                        taskResultMessage = completionMessage
+                    )
+                markCurrentConversationFinished(ConversationStatus.COMPLETED, endedAt, completionMessage)
                 // 确保返回应用
                 executor.bringAppToForeground()
                 Log.d("ChatViewModel", "任务完成(finish动作): $completionMessage")
@@ -551,10 +697,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 任务完成
                 val completionMessage = result.message ?: "任务已完成"
                 FloatingWindowService.getInstance()?.updateStatus("已完成", stepCount, completionMessage)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    taskCompletedMessage = completionMessage
-                )
+                val endedAt = System.currentTimeMillis()
+                _uiState.value =
+                    _uiState.value.copy(
+                        isLoading = false,
+                        taskStatus = ConversationStatus.COMPLETED,
+                        taskEndedAt = endedAt,
+                        taskResultMessage = completionMessage
+                    )
+                markCurrentConversationFinished(ConversationStatus.COMPLETED, endedAt, completionMessage)
                 // 确保返回应用
                 executor.bringAppToForeground()
                 Log.d("ChatViewModel", "任务完成: $completionMessage")
@@ -570,10 +721,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val errorMessage = result.message ?: "操作被阻止"
                     Log.e("ChatViewModel", "遇到不可重试的错误，终止任务: $errorMessage")
                     FloatingWindowService.getInstance()?.updateStatus("已停止", stepCount, errorMessage)
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = errorMessage
-                    )
+                    val endedAt = System.currentTimeMillis()
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isLoading = false,
+                            taskStatus = ConversationStatus.ENDED,
+                            taskEndedAt = endedAt,
+                            taskResultMessage = errorMessage
+                        )
+                    markCurrentConversationFinished(ConversationStatus.ENDED, endedAt, errorMessage)
                     
                     val errorTimestamp = System.currentTimeMillis()
                     val errorMsg = ChatMessage(
@@ -621,10 +777,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 if (retryCount >= 10) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.message ?: "执行动作失败"
-                    )
+                    val endedAt = System.currentTimeMillis()
+                    val message = result.message ?: "执行动作失败"
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isLoading = false,
+                            taskStatus = ConversationStatus.ENDED,
+                            taskEndedAt = endedAt,
+                            taskResultMessage = message
+                        )
+                    markCurrentConversationFinished(ConversationStatus.ENDED, endedAt, message)
                     // 失败也尝试返回应用
                     executor.bringAppToForeground()
                     Log.e("ChatViewModel", "重试超过上限，结束流程: ${result.message}")
@@ -645,10 +807,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         FloatingWindowService.getInstance()?.updateStatus("已停止", stepCount, "达到最大步数限制")
-        _uiState.value = _uiState.value.copy(
-            isLoading = false,
-            error = "达到最大步数限制"
-        )
+        val endedAt = System.currentTimeMillis()
+        val message = "达到最大步数限制"
+        _uiState.value =
+            _uiState.value.copy(
+                isLoading = false,
+                taskStatus = ConversationStatus.ENDED,
+                taskEndedAt = endedAt,
+                taskResultMessage = message
+            )
+        markCurrentConversationFinished(ConversationStatus.ENDED, endedAt, message)
         executor.bringAppToForeground()
         Log.w("ChatViewModel", "达到最大步数限制")
     }
@@ -771,7 +939,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshModelClient() {
         viewModelScope.launch {
             val baseUrl = preferencesRepository.getBaseUrlSync()
-            val apiKey = preferencesRepository.getApiKeySync() ?: "EMPTY"
+            val apiKey = preferencesRepository.getApiKeySync().orEmpty()
             modelClient = ModelClient(getApplication(), baseUrl, apiKey)
         }
     }
