@@ -17,7 +17,13 @@ class SettingsDefaultsSmokeTest {
 
     @Test
     fun defaultsShownInSettings() {
-        composeRule.onNodeWithTag("nav_settings").performClick()
+        composeRule.onNodeWithTag("drawer_toggle").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("drawer_settings").performClick()
+
+        // Model settings is now a sub-page under Settings
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_item_model").performClick()
 
         composeRule.onNodeWithTag("settings_apiKey").assertTextContains("")
         composeRule.onNodeWithTag("settings_baseUrl").assertTextContains("http://47.99.92.117:28100/v1")

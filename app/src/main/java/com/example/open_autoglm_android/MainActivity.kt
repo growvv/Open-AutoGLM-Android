@@ -11,31 +11,35 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.open_autoglm_android.navigation.Screen
 import com.example.open_autoglm_android.ui.screen.AdvancedAuthScreen
+import com.example.open_autoglm_android.ui.screen.AppDrawerContent
 import com.example.open_autoglm_android.ui.screen.AppsScreen
+import com.example.open_autoglm_android.ui.screen.EdgeSwipeToHome
 import com.example.open_autoglm_android.ui.screen.MainScreen
+import com.example.open_autoglm_android.ui.screen.ModelSettingsScreen
 import com.example.open_autoglm_android.ui.screen.SettingsScreen
 import com.example.open_autoglm_android.ui.theme.OpenAutoGLMAndroidTheme
 import com.example.open_autoglm_android.ui.viewmodel.AppsViewModel
+import com.example.open_autoglm_android.ui.viewmodel.ChatViewModel
 import com.example.open_autoglm_android.ui.viewmodel.SettingsViewModel
 import com.example.open_autoglm_android.util.AccessibilityServiceHelper
 import com.example.open_autoglm_android.util.AuthHelper
@@ -57,6 +61,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
 
     private val settingsViewModel by viewModels<SettingsViewModel>()
     private val appsViewModel by viewModels<AppsViewModel>()
+    private val chatViewModel by viewModels<ChatViewModel>()
 
     private var accessibilityRefreshJob: Job? = null
 
@@ -69,6 +74,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
             .version(1)
 
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initObserver()
@@ -76,108 +82,182 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
         enableEdgeToEdge()
         setContent {
             OpenAutoGLMAndroidTheme {
-                var selectedTab by rememberSaveable { mutableStateOf(Screen.Main) }
                 val navController = rememberNavController()
+                val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                val chatUiState by chatViewModel.uiState.collectAsStateWithLifecycle()
+                val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = currentBackStackEntry?.destination?.route ?: Screen.Main.name
 
-                Scaffold(
-                    bottomBar = {
-                        NavigationBar {
-                            NavigationBarItem(
-                                icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
-                                label = { Text("首页") },
-                                selected = selectedTab == Screen.Main,
-                                onClick = {
-                                    selectedTab = Screen.Main
-                                    if (navController.currentDestination?.route != Screen.Main.name) {
-                                        navController.navigate(Screen.Main.name) {
-                                            popUpTo(Screen.Main.name) { inclusive = false }
-                                            launchSingleTop = true
-                                        }
+                ModalNavigationDrawer(
+                    drawerState = drawerState,
+                    gesturesEnabled = currentRoute == Screen.Main.name,
+                    drawerContent = {
+                        AppDrawerContent(
+                            conversations = chatUiState.conversations,
+                            currentConversationId = chatUiState.currentConversationId,
+                            onNavigateSettings = {
+                                scope.launch {
+                                    drawerState.snapTo(DrawerValue.Closed)
+                                    navController.navigate(Screen.Settings.name) {
+                                        launchSingleTop = true
                                     }
                                 }
-                            )
-                            NavigationBarItem(
-                                icon = { Icon(Icons.Default.Apps, contentDescription = "应用") },
-                                label = { Text("应用") },
-                                selected = selectedTab == Screen.Apps,
-                                onClick = {
-                                    selectedTab = Screen.Apps
-                                    if (navController.currentDestination?.route != Screen.Apps.name) {
-                                        navController.navigate(Screen.Apps.name) {
-                                            popUpTo(Screen.Main.name) { inclusive = false }
-                                            launchSingleTop = true
-                                        }
+                            },
+                            onNewTask = {
+                                scope.launch {
+                                    drawerState.snapTo(DrawerValue.Closed)
+                                    chatViewModel.createNewConversation()
+                                    navController.navigate(Screen.Main.name) {
+                                        popUpTo(Screen.Main.name) { inclusive = false }
+                                        launchSingleTop = true
                                     }
                                 }
-                            )
-                            NavigationBarItem(
-                                modifier = Modifier.testTag("nav_settings"),
-                                icon = {
-                                    Icon(
-                                        Icons.Default.Settings,
-                                        contentDescription = "设置"
-                                    )
-                                },
-                                label = { Text("设置") },
-                                selected = selectedTab == Screen.Settings,
-                                onClick = {
-                                    selectedTab = Screen.Settings
-                                    if (navController.currentDestination?.route != Screen.Settings.name) {
-                                        navController.navigate(Screen.Settings.name) {
-                                            popUpTo(Screen.Main.name) { inclusive = false }
-                                            launchSingleTop = true
-                                        }
+                            },
+                            onTaskSelected = { id, title ->
+                                scope.launch {
+                                    drawerState.snapTo(DrawerValue.Closed)
+                                    chatViewModel.switchConversation(id, title)
+                                    navController.navigate(Screen.Main.name) {
+                                        popUpTo(Screen.Main.name) { inclusive = false }
+                                        launchSingleTop = true
                                     }
                                 }
-                            )
-                        }
+                            },
+                            onDeleteTask = { id -> chatViewModel.deleteConversation(id) }
+                        )
                     }
-                ) { innerPadding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = Screen.Main.name,
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .consumeWindowInsets(innerPadding)
-                    ) {
-                        composable(Screen.Main.name) {
-                            MainScreen(
-                                onNavigateToSettings = {
-                                    selectedTab = Screen.Settings
-                                    if (navController.currentDestination?.route != Screen.Settings.name) {
-                                        navController.navigate(Screen.Settings.name) {
-                                            popUpTo(Screen.Main.name) { inclusive = false }
-                                            launchSingleTop = true
+                ) {
+                    Scaffold(
+                        topBar = {
+                            val showTopBar =
+                                currentRoute == Screen.Main.name || currentRoute == Screen.Settings.name
+                            if (showTopBar) {
+                                TopAppBar(
+                                    navigationIcon = {
+                                        if (currentRoute == Screen.Main.name) {
+                                            IconButton(
+                                                modifier = Modifier.testTag("drawer_toggle"),
+                                                onClick = { scope.launch { drawerState.snapTo(DrawerValue.Open) } }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Menu,
+                                                    contentDescription = "菜单"
+                                                )
+                                            }
+                                        } else {
+                                            IconButton(
+                                                onClick = {
+                                                    navController.popBackStack(Screen.Main.name, false)
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                                    contentDescription = "返回首页"
+                                                )
+                                            }
                                         }
+                                    },
+                                    title = {
+                                        Text(
+                                            when (currentRoute) {
+                                                Screen.Settings.name -> "设置"
+                                                else -> chatUiState.currentConversationTitle ?: "AutoGLM"
+                                            }
+                                        )
                                     }
-                                }
-                            )
-                        }
-                        composable(Screen.Apps.name) {
-                            Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = MaterialTheme.colorScheme.background
-                            ) {
-                                AppsScreen(viewModel = appsViewModel)
-                            }
-                        }
-                        composable(Screen.AdvancedAuth.name) {
-                            Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = MaterialTheme.colorScheme.background
-                            ) {
-                                AdvancedAuthScreen(
-                                    onBack = { navController.popBackStack() }
                                 )
                             }
                         }
-                        composable(Screen.Settings.name) {
-                            SettingsScreen(
-                                viewModel = settingsViewModel,
-                                onNavigateToAdvancedAuth = {
-                                    navController.navigate(Screen.AdvancedAuth.name)
+                    ) { innerPadding ->
+                        NavHost(
+                            navController = navController,
+                            startDestination = Screen.Main.name,
+                            // 禁用 navigation-compose 默认的淡入淡出过渡，减少“卡顿/延迟”的主观感受
+                            enterTransition = { EnterTransition.None },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { ExitTransition.None },
+                            modifier =
+                                Modifier
+                                    .padding(innerPadding)
+                                    .consumeWindowInsets(innerPadding)
+                        ) {
+                            composable(Screen.Main.name) {
+                                MainScreen(
+                                    viewModel = chatViewModel,
+                                    onNavigateToSettings = {
+                                        navController.navigate(Screen.Settings.name) {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                )
+                            }
+
+                            composable(Screen.Settings.name) {
+                                EdgeSwipeToHome(
+                                    enabled = true,
+                                    onSwipe = { navController.popBackStack(Screen.Main.name, false) }
+                                ) { m ->
+                                    SettingsScreen(
+                                        modifier = m,
+                                        viewModel = settingsViewModel,
+                                        onNavigateToAdvancedAuth = {
+                                            navController.navigate(Screen.AdvancedAuth.name)
+                                        },
+                                        onNavigateToAppsSettings = {
+                                            navController.navigate(Screen.AppsSettings.name)
+                                        },
+                                        onNavigateToModelSettings = {
+                                            navController.navigate(Screen.ModelSettings.name)
+                                        }
+                                    )
                                 }
-                            )
+                            }
+
+                            composable(Screen.AppsSettings.name) {
+                                EdgeSwipeToHome(
+                                    enabled = true,
+                                    onSwipe = { navController.popBackStack(Screen.Main.name, false) }
+                                ) { m ->
+                                    AppsScreen(
+                                        modifier = m,
+                                        viewModel = appsViewModel,
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                }
+                            }
+
+                            composable(Screen.ModelSettings.name) {
+                                EdgeSwipeToHome(
+                                    enabled = true,
+                                    onSwipe = { navController.popBackStack(Screen.Main.name, false) }
+                                ) { m ->
+                                    ModelSettingsScreen(
+                                        modifier = m,
+                                        viewModel = settingsViewModel,
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                }
+                            }
+
+                            composable(Screen.AdvancedAuth.name) {
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    color = MaterialTheme.colorScheme.background
+                                ) {
+                                    EdgeSwipeToHome(
+                                        enabled = true,
+                                        onSwipe = { navController.popBackStack(Screen.Main.name, false) }
+                                    ) { m ->
+                                        Box(modifier = m) {
+                                            AdvancedAuthScreen(
+                                                onBack = { navController.popBackStack() }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -2,7 +2,8 @@ package com.example.open_autoglm_android.navigation
 
 enum class Screen {
     Main,
-    Apps,
-    AdvancedAuth,
-    Settings
+    Settings,
+    AppsSettings,
+    ModelSettings,
+    AdvancedAuth
 }
