@@ -41,6 +41,7 @@ import com.example.open_autoglm_android.util.AccessibilityServiceHelper
 import com.example.open_autoglm_android.util.AuthHelper
 import com.example.open_autoglm_android.util.AuthHelper.hasWriteSecureSettingsPermission
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
@@ -56,6 +57,8 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
 
     private val settingsViewModel by viewModels<SettingsViewModel>()
     private val appsViewModel by viewModels<AppsViewModel>()
+
+    private var accessibilityRefreshJob: Job? = null
 
     private var userService: IUserService? = null
     private val userServiceArgs =
@@ -180,6 +183,20 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 从系统设置页返回时，立即刷新无障碍状态，避免进入“设置”页短暂显示未启用
+        accessibilityRefreshJob?.cancel()
+        accessibilityRefreshJob =
+            lifecycleScope.launch {
+                settingsViewModel.checkAccessibilityService()
+                delay(300)
+                settingsViewModel.checkAccessibilityService()
+                delay(1200)
+                settingsViewModel.checkAccessibilityService()
+            }
     }
 
     private fun initObserver() {
