@@ -1,6 +1,7 @@
 package com.example.open_autoglm_android.ui.viewmodel
 
 import android.app.Application
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -20,6 +21,7 @@ import com.example.open_autoglm_android.service.FloatingWindowService
 import com.example.open_autoglm_android.util.BitmapUtils
 import com.example.open_autoglm_android.util.DeviceUtils
 import com.example.open_autoglm_android.util.AccessibilityServiceHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 
 data class ChatMessage(
@@ -60,7 +63,9 @@ data class ChatUiState(
     val currentConversationId: String? = null,
     val currentConversationTitle: String? = null,
     val isDrawerOpen: Boolean = false,
-    val showAccessibilityEnableDialog: Boolean = false
+    val showAccessibilityEnableDialog: Boolean = false,
+    val showAppsPermissionGuideDialog: Boolean = false,
+    val appsDetectedCountForGuide: Int? = null
 )
 
 data class StepTiming(
@@ -82,6 +87,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var modelClient: ModelClient? = null
     private var actionExecutor: ActionExecutor? = null
     private var currentTaskJob: Job? = null
+
+    private var hasShownAppsPermissionGuide: Boolean = false
     
     // 维护对话上下文（消息历史，仅在运行时有效，包含图片等大数据）
     private val messageContext = mutableListOf<NetworkChatMessage>()
@@ -120,6 +127,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             launch {
                 conversationRepository.currentConversationTitle.collect { conversationTitle ->
                     _uiState.value = _uiState.value.copy(currentConversationTitle = conversationTitle)
+                }
+            }
+
+            launch {
+                preferencesRepository.hasShownAppsPermissionGuide.collect { shown ->
+                    hasShownAppsPermissionGuide = shown
                 }
             }
             
@@ -270,7 +283,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(isDrawerOpen = false)
     }
     
-    fun sendMessage(userInput: String): Boolean {
+    suspend fun sendMessage(
+        userInput: String,
+        skipAppsPermissionGuide: Boolean = false
+    ): Boolean {
         if (userInput.isBlank() || _uiState.value.isLoading) return false
 
         val isEnabledInSettings =
@@ -284,113 +300,145 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return false
         }
 
-        currentTaskJob = viewModelScope.launch {
-            try {
-                val conversationTitle = userInput.take(20).ifBlank { "新任务" }
-                val conversation = conversationRepository.createConversation(title = conversationTitle)
-
-                // 新任务启动：清空运行时上下文
-                messageContext.clear()
-                stepTimings.clear()
-                _uiState.value = _uiState.value.copy(stepTimings = emptyList())
-
-                FloatingWindowService.getInstance()?.updatePauseStatus(false)
-
-                val userMessage =
-                    ChatMessage(
-                        id = System.currentTimeMillis().toString(),
-                        role = MessageRole.USER,
-                        content = userInput
-                    )
-                val startedAt = userMessage.timestamp
-
+        if (!skipAppsPermissionGuide && !hasShownAppsPermissionGuide) {
+            val detectedCount =
+                withContext(Dispatchers.IO) {
+                    val pm = getApplication<Application>().packageManager
+                    pm.getInstalledApplications(PackageManager.GET_META_DATA).size
+                }
+            if (detectedCount < 5) {
+                hasShownAppsPermissionGuide = true
+                preferencesRepository.saveHasShownAppsPermissionGuide(true)
                 _uiState.value =
                     _uiState.value.copy(
-                        currentConversationId = conversation.id,
-                        currentConversationTitle = conversationTitle,
-                        messages = listOf(userMessage),
-                        isLoading = true,
-                        error = null,
-                        isPaused = false,
-                        taskStatus = ConversationStatus.RUNNING,
-                        taskStartedAt = startedAt,
-                        taskEndedAt = null,
-                        taskResultMessage = null,
-                        stepTimings = emptyList()
+                        showAppsPermissionGuideDialog = true,
+                        appsDetectedCountForGuide = detectedCount
                     )
+                return false
+            }
+        }
 
-                // 保存用户消息（确保任务列表可回看）
-                saveCurrentMessages()
+        startNewTask(userInput)
+        return true
+    }
 
-                val accessibilityService = waitForAccessibilityServiceInstance()
-                if (accessibilityService == null) {
+    fun dismissAppsPermissionGuideDialog() {
+        _uiState.value =
+            _uiState.value.copy(
+                showAppsPermissionGuideDialog = false,
+                appsDetectedCountForGuide = null
+            )
+    }
+
+    private fun startNewTask(userInput: String) {
+        currentTaskJob =
+            viewModelScope.launch {
+                try {
+                    val conversationTitle = userInput.take(20).ifBlank { "新任务" }
+                    val conversation =
+                        conversationRepository.createConversation(title = conversationTitle)
+
+                    // 新任务启动：清空运行时上下文
+                    messageContext.clear()
+                    stepTimings.clear()
+                    _uiState.value = _uiState.value.copy(stepTimings = emptyList())
+
+                    FloatingWindowService.getInstance()?.updatePauseStatus(false)
+
+                    val userMessage =
+                        ChatMessage(
+                            id = System.currentTimeMillis().toString(),
+                            role = MessageRole.USER,
+                            content = userInput
+                        )
+                    val startedAt = userMessage.timestamp
+
+                    _uiState.value =
+                        _uiState.value.copy(
+                            currentConversationId = conversation.id,
+                            currentConversationTitle = conversationTitle,
+                            messages = listOf(userMessage),
+                            isLoading = true,
+                            error = null,
+                            isPaused = false,
+                            taskStatus = ConversationStatus.RUNNING,
+                            taskStartedAt = startedAt,
+                            taskEndedAt = null,
+                            taskResultMessage = null,
+                            stepTimings = emptyList()
+                        )
+
+                    // 保存用户消息（确保任务列表可回看）
+                    saveCurrentMessages()
+
+                    val accessibilityService = waitForAccessibilityServiceInstance()
+                    if (accessibilityService == null) {
+                        _uiState.value =
+                            _uiState.value.copy(
+                                isLoading = false,
+                                taskStatus = ConversationStatus.ENDED,
+                                taskEndedAt = System.currentTimeMillis(),
+                                taskResultMessage =
+                                    "无障碍服务已开启，但服务未连接。请返回桌面后重试，或重启应用。"
+                            )
+                        markCurrentConversationFinished(
+                            status = ConversationStatus.ENDED,
+                            endedAt = _uiState.value.taskEndedAt ?: System.currentTimeMillis(),
+                            resultMessage = _uiState.value.taskResultMessage
+                        )
+                        return@launch
+                    }
+
+                    markCurrentConversationStarted(startedAt)
+
+                    // 在每次任务开始前，重新加载 AppRegistry，以确保最新的映射配置被加载
+                    AppRegistry.initialize(getApplication())
+
+                    // 重新初始化 ModelClient（以防配置变化）
+                    val baseUrl = preferencesRepository.getBaseUrlSync()
+                    val apiKey = preferencesRepository.getApiKeySync().orEmpty()
+                    val modelName = preferencesRepository.getModelNameSync()
+
+                    modelClient = ModelClient(getApplication(), baseUrl, apiKey)
+                    actionExecutor = ActionExecutor(accessibilityService)
+
+                    // 执行任务循环
+                    executeTaskLoop(userInput, modelName)
+                } catch (e: CancellationException) {
+                    Log.d("ChatViewModel", "任务已取消")
+                    FloatingWindowService.getInstance()?.updateStatus("已停止", 0, "用户手动停止")
+                    val endedAt = System.currentTimeMillis()
+                    _uiState.value =
+                        _uiState.value.copy(
+                            isLoading = false,
+                            isPaused = false,
+                            taskStatus = ConversationStatus.ABORTED,
+                            taskEndedAt = endedAt,
+                            taskResultMessage = "用户手动停止"
+                        )
+                    markCurrentConversationFinished(
+                        status = ConversationStatus.ABORTED,
+                        endedAt = endedAt,
+                        resultMessage = "用户手动停止"
+                    )
+                } catch (e: Exception) {
                     _uiState.value =
                         _uiState.value.copy(
                             isLoading = false,
                             taskStatus = ConversationStatus.ENDED,
                             taskEndedAt = System.currentTimeMillis(),
-                            taskResultMessage = "无障碍服务已开启，但服务未连接。请返回桌面后重试，或重启应用。"
-                    )
+                            taskResultMessage = "错误: ${e.message}"
+                        )
                     markCurrentConversationFinished(
                         status = ConversationStatus.ENDED,
                         endedAt = _uiState.value.taskEndedAt ?: System.currentTimeMillis(),
                         resultMessage = _uiState.value.taskResultMessage
                     )
-                    return@launch
+                } finally {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    currentTaskJob = null
                 }
-
-                markCurrentConversationStarted(startedAt)
-                
-                // 在每次任务开始前，重新加载 AppRegistry，以确保最新的映射配置被加载
-                AppRegistry.initialize(getApplication())
-                
-                // 重新初始化 ModelClient（以防配置变化）
-                val baseUrl = preferencesRepository.getBaseUrlSync()
-                val apiKey = preferencesRepository.getApiKeySync().orEmpty()
-                val modelName = preferencesRepository.getModelNameSync()
-
-                modelClient = ModelClient(getApplication(), baseUrl, apiKey)
-                actionExecutor = ActionExecutor(accessibilityService)
-                
-                // 执行任务循环
-                executeTaskLoop(userInput, modelName)
-                
-            } catch (e: CancellationException) {
-                Log.d("ChatViewModel", "任务已取消")
-                FloatingWindowService.getInstance()?.updateStatus("已停止", 0, "用户手动停止")
-                val endedAt = System.currentTimeMillis()
-                _uiState.value =
-                    _uiState.value.copy(
-                        isLoading = false,
-                        isPaused = false,
-                        taskStatus = ConversationStatus.ABORTED,
-                        taskEndedAt = endedAt,
-                        taskResultMessage = "用户手动停止"
-                    )
-                markCurrentConversationFinished(
-                    status = ConversationStatus.ABORTED,
-                    endedAt = endedAt,
-                    resultMessage = "用户手动停止"
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    taskStatus = ConversationStatus.ENDED,
-                    taskEndedAt = System.currentTimeMillis(),
-                    taskResultMessage = "错误: ${e.message}"
-                )
-                markCurrentConversationFinished(
-                    status = ConversationStatus.ENDED,
-                    endedAt = _uiState.value.taskEndedAt ?: System.currentTimeMillis(),
-                    resultMessage = _uiState.value.taskResultMessage
-                )
-            } finally {
-                _uiState.value = _uiState.value.copy(isLoading = false)
-                currentTaskJob = null
             }
-        }
-
-        return true
     }
 
     fun dismissAccessibilityEnableDialog() {

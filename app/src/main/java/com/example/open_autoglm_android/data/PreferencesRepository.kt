@@ -25,6 +25,8 @@ object PreferenceKeys {
     val IMAGE_COMPRESSION_LEVEL = intPreferencesKey("image_compression_level")
     val MAX_STEPS = intPreferencesKey("max_steps")
     val ENABLED_APPS = stringSetPreferencesKey("enabled_apps")  // 存储已启用应用的包名集合
+    val HAS_SHOWN_APPS_PERMISSION_GUIDE =
+        booleanPreferencesKey("has_shown_apps_permission_guide")
 }
 
 enum class InputMode(val value: Int) {
@@ -81,6 +83,10 @@ class PreferencesRepository(private val context: Context) {
         preferences[PreferenceKeys.ENABLED_APPS] ?: emptySet()
     }
 
+    val hasShownAppsPermissionGuide: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.HAS_SHOWN_APPS_PERMISSION_GUIDE] ?: false
+    }
+
     suspend fun saveApiKey(apiKey: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.API_KEY] = apiKey
@@ -133,6 +139,12 @@ class PreferencesRepository(private val context: Context) {
     suspend fun saveEnabledApps(enabledApps: Set<String>) {
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.ENABLED_APPS] = enabledApps
+        }
+    }
+
+    suspend fun saveHasShownAppsPermissionGuide(shown: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.HAS_SHOWN_APPS_PERMISSION_GUIDE] = shown
         }
     }
 
@@ -199,6 +211,12 @@ class PreferencesRepository(private val context: Context) {
         return context.dataStore.data.map {
             it[PreferenceKeys.ENABLED_APPS] ?: emptySet()
         }.firstOrNull() ?: emptySet()
+    }
+
+    suspend fun getHasShownAppsPermissionGuideSync(): Boolean {
+        return context.dataStore.data.map {
+            it[PreferenceKeys.HAS_SHOWN_APPS_PERMISSION_GUIDE] ?: false
+        }.firstOrNull() ?: false
     }
 
     suspend fun isAppEnabled(packageName: String): Boolean {

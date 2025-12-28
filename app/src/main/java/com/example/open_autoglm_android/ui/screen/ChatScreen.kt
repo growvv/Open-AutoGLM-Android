@@ -1,6 +1,7 @@
 package com.example.open_autoglm_android.ui.screen
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,9 +45,11 @@ import com.example.open_autoglm_android.data.database.ConversationStatus
 import com.example.open_autoglm_android.ui.viewmodel.ChatViewModel
 import com.example.open_autoglm_android.ui.viewmodel.MessageRole
 import com.example.open_autoglm_android.ui.viewmodel.StepTiming
+import com.example.open_autoglm_android.util.ActivityLaunchUtils
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -57,6 +61,7 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var userInput by remember { mutableStateOf("") }
 
@@ -228,13 +233,40 @@ fun ChatScreen(
                     }
                 } else {
                     // 非加载中显示发送按钮
-                    Button(
-                        onClick = {
-                            val started = viewModel.sendMessage(userInput)
-                            if (started) userInput = ""
-                        },
-                        enabled = userInput.isNotBlank()
-                    ) { Text("发送", style = MaterialTheme.typography.bodyLarge) }
+                    val sendEnabled = userInput.isNotBlank()
+                    val sendContainer =
+                        if (sendEnabled) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    val sendContent =
+                        if (sendEnabled) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+
+                    Surface(
+                        modifier = Modifier.size(46.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = sendContainer
+                    ) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .clickable(enabled = sendEnabled) {
+                                        val input = userInput
+                                        scope.launch {
+                                            val started = viewModel.sendMessage(input)
+                                            if (started) userInput = ""
+                                        }
+                                    },
+                            contentAlignment = Alignment.Center
+                        ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "发送"
+                            ,
+                            tint = sendContent
+                        )
+                    }
+                    }
                 }
             }
         }
@@ -263,7 +295,7 @@ fun ChatScreen(
                                 Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                 }
-                            context.startActivity(intent)
+                            ActivityLaunchUtils.startActivityNoAnimation(context, intent)
                         } catch (_: Exception) {
                             onNavigateToSettings()
                         }
@@ -272,6 +304,53 @@ fun ChatScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissAccessibilityEnableDialog() }) { Text("取消") }
+            }
+        )
+    }
+
+    if (uiState.showAppsPermissionGuideDialog) {
+        val detectedCount = uiState.appsDetectedCountForGuide ?: 0
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissAppsPermissionGuideDialog() },
+            title = { Text("需要应用列表权限") },
+            text = {
+                Text(
+                    "检测到可获取的应用数量较少（$detectedCount）。部分机型需要手动开启“获取应用列表”权限，否则可能无法正确选择/控制目标应用。"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.dismissAppsPermissionGuideDialog()
+                        val intent =
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        ActivityLaunchUtils.startActivityNoAnimation(context, intent)
+                    }
+                ) { Text("去授权") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { viewModel.dismissAppsPermissionGuideDialog() }) {
+                        Text("取消")
+                    }
+                    TextButton(
+                        onClick = {
+                            viewModel.dismissAppsPermissionGuideDialog()
+                            val input = userInput
+                            scope.launch {
+                                val started =
+                                    viewModel.sendMessage(
+                                        input,
+                                        skipAppsPermissionGuide = true
+                                    )
+                                if (started) userInput = ""
+                            }
+                        }
+                    ) { Text("继续执行") }
+                }
             }
         )
     }
