@@ -1,16 +1,15 @@
 package com.example.open_autoglm_android.ui.screen
 
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -18,6 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -32,64 +33,29 @@ import com.example.open_autoglm_android.ui.viewmodel.AppsViewModel
 @Composable
 fun AppsScreen(
     modifier: Modifier = Modifier,
-    viewModel: AppsViewModel = viewModel()
+    viewModel: AppsViewModel = viewModel(),
+    onBack: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
     val apps by viewModel.apps.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val showSystemApps by viewModel.showSystemApps.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    
-    var showFilterDialog by remember { mutableStateOf(false) }
-    var showSelectionMenu by remember { mutableStateOf(false) }
-    
+
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("应用列表") },
+                title = { Text("应用管理") },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        }
+                    }
+                },
                 actions = {
-                    // 刷新按钮
                     IconButton(onClick = { viewModel.loadInstalledApps() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "刷新")
-                    }
-                    
-                    // 选择操作菜单
-                    Box {
-                        IconButton(onClick = { showSelectionMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "选择操作")
-                        }
-                        DropdownMenu(
-                            expanded = showSelectionMenu,
-                            onDismissRequest = { showSelectionMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("选择全部") },
-                                onClick = {
-                                    viewModel.selectAllApps()
-                                    showSelectionMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("全部不选") },
-                                onClick = {
-                                    viewModel.deselectAllApps()
-                                    showSelectionMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("反向选择") },
-                                onClick = {
-                                    viewModel.invertSelection()
-                                    showSelectionMenu = false
-                                }
-                            )
-                        }
-                    }
-                    
-                    // 筛选设置按钮
-                    IconButton(onClick = { showFilterDialog = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = "筛选设置")
                     }
                 }
             )
@@ -99,15 +65,16 @@ fun AppsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .background(Color(0xFFF4F5F7))
         ) {
-            // 搜索框
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("搜索应用名称或包名") },
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .heightIn(min = 52.dp),
+                placeholder = { Text("搜索应用名称或包名", style = MaterialTheme.typography.bodyMedium) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
                 trailingIcon = {
                     if (searchQuery.isNotBlank()) {
@@ -116,10 +83,35 @@ fun AppsScreen(
                         }
                     }
                 },
-                singleLine = true
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
             )
-            
-            // 应用列表
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (isLoading) "加载中…" else "已检测到 ${apps.size} 个应用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                FilterChip(
+                    selected = showSystemApps,
+                    onClick = { viewModel.toggleShowSystemApps() },
+                    label = { Text("系统应用") }
+                )
+            }
+
             if (isLoading) {
                 Box(
                     modifier = Modifier
@@ -144,19 +136,12 @@ fun AppsScreen(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    item {
-                        Text(
-                            text = "共 ${apps.size} 个应用",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
-                    
                     items(apps, key = { it.packageName }) { app ->
-                        AppListItem(
+                        AppCardItem(
                             app = app,
                             onToggleEnabled = { enabled ->
                                 viewModel.toggleAppEnabled(app.packageName, enabled)
@@ -165,148 +150,102 @@ fun AppsScreen(
                     }
                 }
             }
-            
-            // 底部提示信息
-            if (!isLoading && apps.size < 3) {
-                HorizontalDivider()
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "部分机型可能需要手动授予获取应用列表的权限",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    OutlinedButton(
-                        onClick = {
-                            val intent =
-                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                    data = Uri.fromParts("package", context.packageName, null)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                            context.startActivity(intent)
-                        }
-                    ) {
-                        Text("打开应用权限设置")
-                    }
-                }
-            }
         }
-    }
-    
-    // 筛选对话框
-    if (showFilterDialog) {
-        AlertDialog(
-            onDismissRequest = { showFilterDialog = false },
-            title = { Text("筛选设置") },
-            text = {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.toggleShowSystemApps() }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = showSystemApps,
-                            onCheckedChange = { viewModel.toggleShowSystemApps() }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("显示系统应用")
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showFilterDialog = false }) {
-                    Text("确定")
-                }
-            }
-        )
     }
 }
 
 @Composable
-fun AppListItem(
+private fun AppCardItem(
     app: AppInfo,
     modifier: Modifier = Modifier,
     onToggleEnabled: (Boolean) -> Unit
 ) {
     val density = LocalDensity.current
     val iconSizePx = with(density) { 48.dp.roundToPx() }
-    
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+
+    Card(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable { onToggleEnabled(!app.isEnabled) },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        // 应用图标
-        if (app.icon != null) {
-            val bitmap = remember(app.icon, iconSizePx) {
-                app.icon.toBitmap(width = iconSizePx, height = iconSizePx)
-            }
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = app.appName,
-                modifier = Modifier.size(48.dp)
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .padding(4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = app.appName,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        // 应用信息
-        Column(
-            modifier = Modifier.weight(1f)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = app.appName,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = app.packageName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (app.isSystemApp) {
+            if (app.icon != null) {
+                val bitmap =
+                    remember(app.icon, iconSizePx) {
+                        app.icon.toBitmap(width = iconSizePx, height = iconSizePx)
+                    }
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = app.appName,
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
+                )
+            } else {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = app.appName,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "系统应用",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary
+                    text = app.appName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = app.packageName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (app.isSystemApp) {
+                    Text(
+                        text = "系统应用",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            val chipBg =
+                if (app.isEnabled) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant
+            val chipText =
+                if (app.isEnabled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+            val statusText = if (app.isEnabled) "已允许" else "不允许"
+
+            Surface(
+                modifier = Modifier.clip(RoundedCornerShape(999.dp)).clickable {
+                    onToggleEnabled(!app.isEnabled)
+                },
+                color = chipBg
+            ) {
+                Text(
+                    text = statusText,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = chipText
                 )
             }
         }
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
-        // 启用/禁用开关
-        Switch(
-            checked = app.isEnabled,
-            onCheckedChange = onToggleEnabled
-        )
     }
-    
-    HorizontalDivider()
 }

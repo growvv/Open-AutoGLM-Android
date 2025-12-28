@@ -51,7 +51,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 enabledApps = preferencesRepository.getEnabledAppsSync()
                 
                 val packageManager = getApplication<Application>().packageManager
-                val installedApps = withContext(Dispatchers.IO) {
+                val installedAppsRaw = withContext(Dispatchers.IO) {
                     packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
                         .map { appInfo ->
                             val packageName = appInfo.packageName
@@ -69,6 +69,16 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         .sortedBy { it.appName.lowercase() }
                 }
+
+                // 首次使用默认全部授权（开启）
+                val installedApps =
+                    if (enabledApps.isEmpty() && installedAppsRaw.isNotEmpty()) {
+                        enabledApps = installedAppsRaw.map { it.packageName }.toSet()
+                        preferencesRepository.saveEnabledApps(enabledApps)
+                        installedAppsRaw.map { it.copy(isEnabled = true) }
+                    } else {
+                        installedAppsRaw
+                    }
                 allApps = installedApps
                 filterApps()
             } catch (e: Exception) {
@@ -248,4 +258,3 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             .sortedByDescending { it.isEnabled }
     }
 }
-
