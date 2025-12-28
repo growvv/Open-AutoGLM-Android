@@ -23,6 +23,7 @@ object PreferenceKeys {
     val INPUT_MODE = intPreferencesKey("input_mode")
     val IMAGE_COMPRESSION_ENABLED = booleanPreferencesKey("image_compression_enabled")
     val IMAGE_COMPRESSION_LEVEL = intPreferencesKey("image_compression_level")
+    val MAX_STEPS = intPreferencesKey("max_steps")
     val ENABLED_APPS = stringSetPreferencesKey("enabled_apps")  // 存储已启用应用的包名集合
 }
 
@@ -38,16 +39,22 @@ enum class InputMode(val value: Int) {
 
 class PreferencesRepository(private val context: Context) {
 
+    companion object {
+        const val DEFAULT_BASE_URL = "http://47.99.92.117:28100/v1"
+        const val DEFAULT_MODEL_NAME = "autoglm-phone-9b"
+        const val DEFAULT_MAX_STEPS = 50
+    }
+
     val apiKey: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[PreferenceKeys.API_KEY]
     }
 
     val baseUrl: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[PreferenceKeys.BASE_URL] ?: "https://open.bigmodel.cn/api/paas/v4"
+        preferences[PreferenceKeys.BASE_URL] ?: DEFAULT_BASE_URL
     }
 
     val modelName: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[PreferenceKeys.MODEL_NAME] ?: "autoglm-phone"
+        preferences[PreferenceKeys.MODEL_NAME] ?: DEFAULT_MODEL_NAME
     }
 
     val floatingWindowEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -64,6 +71,10 @@ class PreferencesRepository(private val context: Context) {
 
     val imageCompressionLevel: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[PreferenceKeys.IMAGE_COMPRESSION_LEVEL] ?: 50
+    }
+
+    val maxSteps: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.MAX_STEPS] ?: DEFAULT_MAX_STEPS
     }
 
     val enabledApps: Flow<Set<String>> = context.dataStore.data.map { preferences ->
@@ -112,6 +123,13 @@ class PreferencesRepository(private val context: Context) {
         }
     }
 
+    suspend fun saveMaxSteps(maxSteps: Int) {
+        val clamped = maxSteps.coerceIn(1, 500)
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.MAX_STEPS] = clamped
+        }
+    }
+
     suspend fun saveEnabledApps(enabledApps: Set<String>) {
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.ENABLED_APPS] = enabledApps
@@ -137,14 +155,14 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun getBaseUrlSync(): String {
         return context.dataStore.data.map {
-            it[PreferenceKeys.BASE_URL] ?: "https://open.bigmodel.cn/api/paas/v4"
-        }.firstOrNull() ?: "https://open.bigmodel.cn/api/paas/v4"
+            it[PreferenceKeys.BASE_URL] ?: DEFAULT_BASE_URL
+        }.firstOrNull() ?: DEFAULT_BASE_URL
     }
 
     suspend fun getModelNameSync(): String {
         return context.dataStore.data.map {
-            it[PreferenceKeys.MODEL_NAME] ?: "autoglm-phone"
-        }.firstOrNull() ?: "autoglm-phone"
+            it[PreferenceKeys.MODEL_NAME] ?: DEFAULT_MODEL_NAME
+        }.firstOrNull() ?: DEFAULT_MODEL_NAME
     }
 
     suspend fun getFloatingWindowEnabledSync(): Boolean {
@@ -169,6 +187,12 @@ class PreferencesRepository(private val context: Context) {
         return context.dataStore.data.map {
             it[PreferenceKeys.IMAGE_COMPRESSION_LEVEL] ?: 50
         }.firstOrNull() ?: 50
+    }
+
+    suspend fun getMaxStepsSync(): Int {
+        return context.dataStore.data.map {
+            it[PreferenceKeys.MAX_STEPS] ?: DEFAULT_MAX_STEPS
+        }.firstOrNull() ?: DEFAULT_MAX_STEPS
     }
 
     suspend fun getEnabledAppsSync(): Set<String> {

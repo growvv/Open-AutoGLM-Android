@@ -7,6 +7,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.open_autoglm_android.data.InputMode
 import com.example.open_autoglm_android.data.PreferencesRepository
+import com.example.open_autoglm_android.data.PreferencesRepository.Companion.DEFAULT_BASE_URL
+import com.example.open_autoglm_android.data.PreferencesRepository.Companion.DEFAULT_MAX_STEPS
+import com.example.open_autoglm_android.data.PreferencesRepository.Companion.DEFAULT_MODEL_NAME
 import com.example.open_autoglm_android.service.FloatingWindowService
 import com.example.open_autoglm_android.util.AccessibilityServiceHelper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,9 +19,11 @@ import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val apiKey: String = "",
-    val baseUrl: String = "https://open.bigmodel.cn/api/paas/v4",
-    val modelName: String = "autoglm-phone",
+    val baseUrl: String = DEFAULT_BASE_URL,
+    val modelName: String = DEFAULT_MODEL_NAME,
+    val maxStepsInput: String = DEFAULT_MAX_STEPS.toString(),
     val isAccessibilityEnabled: Boolean = false,
+    val isAccessibilityServiceRunning: Boolean = false,
     val floatingWindowEnabled: Boolean = false,
     val hasOverlayPermission: Boolean = false,
     val inputMode: InputMode = InputMode.SET_TEXT,
@@ -53,12 +58,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
         viewModelScope.launch {
             preferencesRepository.baseUrl.collect { baseUrl ->
-                _uiState.value = _uiState.value.copy(baseUrl = baseUrl ?: "https://open.bigmodel.cn/api/paas/v4")
+                _uiState.value = _uiState.value.copy(baseUrl = baseUrl ?: DEFAULT_BASE_URL)
             }
         }
         viewModelScope.launch {
             preferencesRepository.modelName.collect { modelName ->
-                _uiState.value = _uiState.value.copy(modelName = modelName ?: "autoglm-phone")
+                _uiState.value = _uiState.value.copy(modelName = modelName ?: DEFAULT_MODEL_NAME)
+            }
+        }
+        viewModelScope.launch {
+            preferencesRepository.maxSteps.collect { maxSteps ->
+                _uiState.value = _uiState.value.copy(maxStepsInput = maxSteps.toString())
             }
         }
         viewModelScope.launch {
@@ -87,8 +97,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun checkAccessibilityService() {
         val enabledInSettings = AccessibilityServiceHelper.isAccessibilityServiceEnabled(getApplication())
         val serviceRunning = AccessibilityServiceHelper.isServiceRunning()
-        val enabled = enabledInSettings && serviceRunning
-        _uiState.value = _uiState.value.copy(isAccessibilityEnabled = enabled)
+        _uiState.value =
+            _uiState.value.copy(
+                isAccessibilityEnabled = enabledInSettings,
+                isAccessibilityServiceRunning = serviceRunning
+            )
     }
     
     fun checkOverlayPermission() {
@@ -161,14 +174,21 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateModelName(modelName: String) {
         _uiState.value = _uiState.value.copy(modelName = modelName)
     }
+
+    fun updateMaxStepsInput(maxStepsInput: String) {
+        _uiState.value = _uiState.value.copy(maxStepsInput = maxStepsInput)
+    }
     
     fun saveSettings() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, saveSuccess = false)
             try {
+                val parsedMaxSteps = _uiState.value.maxStepsInput.trim().toIntOrNull() ?: DEFAULT_MAX_STEPS
+                val clampedMaxSteps = parsedMaxSteps.coerceIn(1, 500)
                 preferencesRepository.saveApiKey(_uiState.value.apiKey)
                 preferencesRepository.saveBaseUrl(_uiState.value.baseUrl)
                 preferencesRepository.saveModelName(_uiState.value.modelName)
+                preferencesRepository.saveMaxSteps(clampedMaxSteps)
                 _uiState.value = _uiState.value.copy(isLoading = false, saveSuccess = true)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = "保存失败: ${e.message}")

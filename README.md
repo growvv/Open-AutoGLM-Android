@@ -35,12 +35,19 @@
 ### 2. 配置 API
 
 1. 打开应用，进入"设置"页面
-2. 在智谱平台申请 API Key（访问 https://open.bigmodel.cn/）
+2. 如后端需要鉴权（例如智谱平台 https://open.bigmodel.cn/），请先申请 API Key
 3. 填写以下信息：
-   - **API Key**：您的智谱 API Key
-   - **Base URL**：默认为 `https://open.bigmodel.cn/api/paas/v4`
-   - **Model Name**：默认为 `autoglm-phone`
+   - **API Key**：选填（后端开启鉴权时才需要）
+   - **Base URL**：默认为 `http://47.99.92.117:28100/v1`
+   - **Model Name**：默认为 `autoglm-phone-9b`
 4. 点击"保存设置"
+
+#### 使用 vLLM / OpenAI 兼容接口
+
+如果您的后端是 vLLM 的 OpenAI 兼容接口（例如：`http://47.99.92.117:28100/`），请在设置中填写：
+- **Base URL**：`http://47.99.92.117:28100/v1`（注意需要带 `/v1`）
+- **API Key**：选填（后端如果开启鉴权则需要填写）
+- **Model Name**：例如 `autoglm-phone-9b`（可请求 `/v1/models` 获取实际可用模型名）
 
 ### 3. 启用无障碍服务
 
@@ -160,4 +167,3 @@ qq交流群：734202636
 ---
 
 **注意**：本项目仅供学习和研究使用。使用本应用时，请遵守相关法律法规和平台使用条款。
-

@@ -35,12 +35,19 @@ Download the APK file from the Releases page and install it on your Android devi
 ### 2. Configure API
 
 1. Open the app and go to the "Settings" page
-2. Apply for an API Key on Zhipu AI platform (visit https://open.bigmodel.cn/)
+2. If your backend requires auth (e.g. Zhipu AI https://open.bigmodel.cn/), apply for an API Key first
 3. Fill in the following information:
-   - **API Key**: Your Zhipu AI API Key
-   - **Base URL**: Default is `https://open.bigmodel.cn/api/paas/v4`
-   - **Model Name**: Default is `autoglm-phone`
+   - **API Key**: optional (required only if your backend enforces auth)
+   - **Base URL**: Default is `http://47.99.92.117:28100/v1`
+   - **Model Name**: Default is `autoglm-phone-9b`
 4. Click "Save Settings"
+
+#### Using vLLM / OpenAI-compatible API
+
+If your backend is a vLLM OpenAI-compatible endpoint (e.g. `http://47.99.92.117:28100/`), set:
+- **Base URL**: `http://47.99.92.117:28100/v1` (must include `/v1`)
+- **API Key**: optional (required only if your backend enforces auth)
+- **Model Name**: e.g. `autoglm-phone-9b` (query `/v1/models` to see available models)
 
 ### 3. Enable Accessibility Service
 
@@ -159,4 +166,3 @@ QQ Group: 734202636
 ---
 
 **Note**: This project is for learning and research purposes only. When using this app, please comply with relevant laws and regulations and platform terms of use.
-

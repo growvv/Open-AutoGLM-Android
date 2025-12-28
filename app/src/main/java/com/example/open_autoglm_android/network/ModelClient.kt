@@ -36,9 +36,13 @@ class ModelClient(
             .addInterceptor { chain ->
                 val original = chain.request()
                 val requestBuilder = original.newBuilder()
-                    .header("Authorization", if (apiKey.isBlank() || apiKey == "EMPTY") "Bearer EMPTY" else "Bearer $apiKey")
-                val request = requestBuilder.build()
-                chain.proceed(request)
+
+                val normalizedApiKey = apiKey.trim()
+                if (normalizedApiKey.isNotEmpty() && normalizedApiKey != "EMPTY") {
+                    requestBuilder.header("Authorization", "Bearer $normalizedApiKey")
+                }
+
+                chain.proceed(requestBuilder.build())
             }
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)

@@ -16,7 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -95,7 +98,12 @@ fun SettingsScreen(
                         Column {
                             Text(text = "无障碍服务", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = if (uiState.isAccessibilityEnabled) "已启用" else "未启用 - 点击前往设置",
+                                text =
+                                    when {
+                                        !uiState.isAccessibilityEnabled -> "未启用 - 点击前往设置"
+                                        uiState.isAccessibilityServiceRunning -> "已启用"
+                                        else -> "已启用（服务连接中）"
+                                    },
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -323,7 +331,7 @@ fun SettingsScreen(
                 value = uiState.apiKey,
                 onValueChange = { viewModel.updateApiKey(it) },
                 label = { Text("API Key") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("settings_apiKey"),
                 singleLine = true
             )
 
@@ -331,7 +339,7 @@ fun SettingsScreen(
                 value = uiState.baseUrl,
                 onValueChange = { viewModel.updateBaseUrl(it) },
                 label = { Text("Base URL") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("settings_baseUrl"),
                 singleLine = true
             )
 
@@ -339,8 +347,20 @@ fun SettingsScreen(
                 value = uiState.modelName,
                 onValueChange = { viewModel.updateModelName(it) },
                 label = { Text("Model Name") },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("settings_modelName"),
                 singleLine = true
+            )
+
+            OutlinedTextField(
+                value = uiState.maxStepsInput,
+                onValueChange = { input ->
+                    val filtered = input.filter { it.isDigit() }
+                    viewModel.updateMaxStepsInput(filtered)
+                },
+                label = { Text("Max Steps (1~500)") },
+                modifier = Modifier.fillMaxWidth().testTag("settings_maxSteps"),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
 
             Button(

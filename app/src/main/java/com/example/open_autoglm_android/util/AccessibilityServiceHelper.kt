@@ -15,18 +15,34 @@ object AccessibilityServiceHelper {
     fun isAccessibilityServiceEnabled(context: Context): Boolean {
         val accessibilityManager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
             ?: return false
-        
-        val enabledServices = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        
-        val serviceName = ComponentName(
-            context.packageName,
-            AutoGLMAccessibilityService::class.java.name
-        ).flattenToString()
-        
-        return enabledServices.contains(serviceName)
+
+        // Prefer AccessibilityManager's enabled list (more reliable across OEM ROMs)
+        val expectedComponentName =
+            ComponentName(context.packageName, AutoGLMAccessibilityService::class.java.name)
+
+        val enabledServices =
+            accessibilityManager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+
+        val enabledByManager =
+            enabledServices.any { serviceInfo ->
+                val service = serviceInfo.resolveInfo.serviceInfo
+                val servicePackageName = service.packageName
+                val serviceClassName =
+                    if (service.name.startsWith(".")) "$servicePackageName${service.name}" else service.name
+
+                servicePackageName == expectedComponentName.packageName &&
+                    serviceClassName == expectedComponentName.className
+            }
+
+        if (enabledByManager) return true
+
+        // Fallback: parse secure settings list
+        val enabledServicesSetting =
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+                ?: return false
+
+        val flattened = expectedComponentName.flattenToString()
+        return enabledServicesSetting.contains(flattened)
     }
     
     /**
@@ -109,4 +125,3 @@ object AccessibilityServiceHelper {
         }
     }
 }
-

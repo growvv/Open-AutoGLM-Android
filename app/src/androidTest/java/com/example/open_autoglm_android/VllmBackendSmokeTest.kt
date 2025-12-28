@@ -1,0 +1,127 @@
+package com.example.open_autoglm_android
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.open_autoglm_android.network.ModelClient
+import com.example.open_autoglm_android.network.dto.ChatMessage
+import com.example.open_autoglm_android.network.dto.ContentItem
+import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class VllmBackendSmokeTest {
+
+    @Test
+    fun vllmModelsEndpointAccessibleWithoutApiKey() {
+        val client = OkHttpClient.Builder().build()
+        val request = Request.Builder()
+            .url("http://47.99.92.117:28100/v1/models")
+            .get()
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            assertEquals(200, response.code)
+        }
+    }
+
+    @Test
+    fun modelClientDoesNotSendAuthorizationHeaderWhenApiKeyBlank() = runBlocking {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody(
+                        """
+                        {
+                          "id": "test",
+                          "choices": [
+                            {
+                              "index": 0,
+                              "message": { "role": "assistant", "content": "finish(message=ok)" },
+                              "finish_reason": "stop"
+                            }
+                          ],
+                          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+                        }
+                        """.trimIndent()
+                    )
+            )
+
+            val baseUrl = server.url("/v1").toString()
+            val modelClient = ModelClient(
+                context = context,
+                baseUrl = baseUrl,
+                apiKey = ""
+            )
+
+            val messages = listOf(
+                ChatMessage(role = "system", content = listOf(ContentItem(type = "text", text = "test"))),
+                ChatMessage(role = "user", content = listOf(ContentItem(type = "text", text = "hi")))
+            )
+
+            modelClient.request(messages = messages, modelName = "autoglm-phone-9b")
+            val recorded = server.takeRequest()
+            assertTrue("Authorization header should be absent", recorded.getHeader("Authorization") == null)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun modelClientSendsAuthorizationHeaderWhenApiKeyProvided() = runBlocking {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody(
+                        """
+                        {
+                          "id": "test",
+                          "choices": [
+                            {
+                              "index": 0,
+                              "message": { "role": "assistant", "content": "finish(message=ok)" },
+                              "finish_reason": "stop"
+                            }
+                          ],
+                          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+                        }
+                        """.trimIndent()
+                    )
+            )
+
+            val baseUrl = server.url("/v1").toString()
+            val modelClient = ModelClient(
+                context = context,
+                baseUrl = baseUrl,
+                apiKey = "test-key"
+            )
+
+            val messages = listOf(
+                ChatMessage(role = "system", content = listOf(ContentItem(type = "text", text = "test"))),
+                ChatMessage(role = "user", content = listOf(ContentItem(type = "text", text = "hi")))
+            )
+
+            modelClient.request(messages = messages, modelName = "autoglm-phone-9b")
+            val recorded = server.takeRequest()
+            assertEquals("Bearer test-key", recorded.getHeader("Authorization"))
+        } finally {
+            server.shutdown()
+        }
+    }
+}
+
