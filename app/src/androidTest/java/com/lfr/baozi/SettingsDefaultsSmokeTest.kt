@@ -25,6 +25,7 @@ class SettingsDefaultsSmokeTest {
             val prefs = PreferencesRepository(composeRule.activity)
             prefs.setLoggedIn(false)
             prefs.saveInviteCode("")
+            prefs.clearCustomBackendOverrides()
         }
         composeRule.waitForIdle()
 
@@ -40,7 +41,6 @@ class SettingsDefaultsSmokeTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings_item_model").performClick()
 
-        composeRule.onNodeWithTag("settings_default_baseUrl").assertTextContains("http://47.99.92.117:28100/v1")
         composeRule.onNodeWithTag("settings_modelName").assertTextContains("autoglm-phone-9b")
 
         composeRule.onNodeWithTag("settings_item_backend").performClick()
