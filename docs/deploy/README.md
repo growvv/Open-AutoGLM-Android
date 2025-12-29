@@ -23,6 +23,20 @@ Notes:
 - `http://47.99.92.117:28100/v1/models` is expected to be accessible without an API key in this environment.
 - Cleartext HTTP is enabled in the app manifest to support `http://` base URLs.
 
+## Login / Account
+
+- First launch shows a **login page** that asks for an invite code.
+  - Current implementation only requires the invite code to be **non-empty** (validation is planned).
+  - Default nickname is **包子** and default avatar is `avator.jpeg`.
+- After login, you can edit avatar/nickname from the **drawer** by tapping the avatar+nickname chip (it opens “个人资料” → “编辑个人资料”).
+
+## Settings UI (where to change things)
+
+- **Model / Max Steps**: `设置` → `模型与执行`
+- **Custom backend overrides (optional)**: `设置` → `模型与执行` → `自定义服务端`
+  - Leave fields blank to use built-in defaults
+  - Use “恢复默认” to clear overrides
+
 ## Build
 
 From repo root:
@@ -76,7 +90,7 @@ Test reports:
 What’s covered:
 - vLLM `/v1/models` reachable without API key
 - `ModelClient` omits `Authorization` header when API key is blank
-- Settings screen shows default Base URL / Model Name
+- Model settings shows default Base URL / Model Name, and backend override page defaults are blank
 
 ## Recent Code/Config Changes (summary)
 
@@ -84,6 +98,12 @@ What’s covered:
 - Default Base URL and Model Name updated in `PreferencesRepository`
 - `ModelClient` only sets `Authorization: Bearer ...` when API key is non-blank (and not `"EMPTY"`)
 - Settings UI defaults updated accordingly
+
+### Login + profile editing
+- Added login gate (invite code required; validation planned)
+- Added profile screens:
+  - “个人资料” (view)
+  - “个人资料” (edit: avatar + nickname editable, invite code read-only)
 
 ### Accessibility “enabled” state fix
 Problem: the app sometimes showed “not enabled” even though the user already enabled the accessibility service.

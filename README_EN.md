@@ -9,7 +9,7 @@ An Android smartphone automation assistant based on Accessibility Service, using
 - 🤖 **AI-Powered Automation**: Uses AutoGLM vision language model to understand screen content and perform operations
 - 📱 **No ADB Required**: Completely based on Android Accessibility Service, no computer connection needed
 - 🎯 **Natural Language Control**: Describe tasks in natural language, AI automatically plans and executes
-- 🔄 **Conversational Interaction**: Supports multi-step tasks, AI remembers context and continues execution
+- 🧾 **Task Timeline Feed**: Shows progress as a feed (thoughts/actions/screenshots/status)
 - 🛠️ **Easy to Use**: Simple interface, just input task descriptions
 
 ## Interface Demo
@@ -32,24 +32,34 @@ An Android smartphone automation assistant based on Accessibility Service, using
 
 Download the APK file from the Releases page and install it on your Android device.
 
-### 2. Configure API
+### 2. Login (Invite Code)
 
-1. Open the app and go to the "Settings" page
+On first launch, the app shows a login page. An **invite code** is required (currently only checks non-empty; validation is planned).
+
+- Default nickname: Baozi (editable)
+- Default avatar: `avator.jpeg` (editable)
+- After login, open the drawer and tap the avatar+nickname chip to edit your profile
+
+### 3. Configure Model & Backend
+
+1. Open the app, open the drawer, and go to the "Settings" page
 2. If your backend requires auth (e.g. Zhipu AI https://open.bigmodel.cn/), apply for an API Key first
-3. Fill in the following information:
-   - **API Key**: optional (required only if your backend enforces auth)
-   - **Base URL**: Default is `http://47.99.92.117:28100/v1`
-   - **Model Name**: Default is `autoglm-phone-9b`
-4. Click "Save Settings"
+3. In “Model & Execution”, configure:
+   - **Model Name**: default is `autoglm-phone-9b`
+   - **Max Steps**: maximum steps (1~500)
+4. Optional: to override backend settings, go to “Model & Execution” → “自定义服务端 (Custom Backend)”
+   - **Base URL**: leave blank to use default `http://47.99.92.117:28100/v1`
+   - **API Key**: optional (blank means no `Authorization` header)
+   - “Reset to defaults” clears overrides
 
 #### Using vLLM / OpenAI-compatible API
 
 If your backend is a vLLM OpenAI-compatible endpoint (e.g. `http://47.99.92.117:28100/`), set:
-- **Base URL**: `http://47.99.92.117:28100/v1` (must include `/v1`)
+- **Base URL**: `http://47.99.92.117:28100/v1` (must include `/v1`; blank uses default)
 - **API Key**: optional (required only if your backend enforces auth)
 - **Model Name**: e.g. `autoglm-phone-9b` (query `/v1/models` to see available models)
 
-### 3. Enable Accessibility Service
+### 4. Enable Accessibility Service
 
 1. On the settings page, click the "Go to Settings" button
 2. Find "AutoGLM Android" in the system accessibility settings
@@ -57,9 +67,9 @@ If your backend is a vLLM OpenAI-compatible endpoint (e.g. `http://47.99.92.117:
 4. Return to the app and confirm the status shows "Enabled"
 5. In system settings, set this app's **battery usage/battery policy** to **Unrestricted/Not restricted** to prevent the system from killing background tasks
 
-### 4. Start Using
+### 5. Start Using
 
-1. Return to the "Chat" page
+1. Return to the Home (task) page
 2. Enter your task description in the input box, for example:
    - "Open QQ"
    - "Open QQ then open xxx group"
@@ -69,9 +79,9 @@ If your backend is a vLLM OpenAI-compatible endpoint (e.g. `http://47.99.92.117:
 4. AI will automatically analyze the screen and perform operations
 5. A Toast notification will be displayed when the task is completed
 
-### 5. Clear Conversation
+### 6. Delete Task History
 
-- Click the delete icon on the right side of the top toolbar to clear conversation history and start a new session
+- Open the drawer and delete tasks from the history list
 
 ## Supported Operations
 
@@ -113,7 +123,7 @@ A: Possible reasons:
 
 ### Q: How can I view the AI's thinking process?
 
-A: In the chat interface, click the "Expand thinking process" button in the assistant message to view it.
+A: In the task detail feed, tap the “Thoughts” card to expand/collapse.
 
 ## Technical Architecture
 
