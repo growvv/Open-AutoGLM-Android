@@ -19,6 +19,10 @@ object PreferenceKeys {
     val API_KEY = stringPreferencesKey("api_key")
     val BASE_URL = stringPreferencesKey("base_url")
     val MODEL_NAME = stringPreferencesKey("model_name")
+    val NICKNAME = stringPreferencesKey("nickname")
+    val AVATAR_URI = stringPreferencesKey("avatar_uri")
+    val INVITE_CODE = stringPreferencesKey("invite_code")
+    val LOGGED_IN = booleanPreferencesKey("logged_in")
     val FLOATING_WINDOW_ENABLED = booleanPreferencesKey("floating_window_enabled")
     val INPUT_MODE = intPreferencesKey("input_mode")
     val IMAGE_COMPRESSION_ENABLED = booleanPreferencesKey("image_compression_enabled")
@@ -57,14 +61,32 @@ class PreferencesRepository(private val context: Context) {
         const val DEFAULT_BASE_URL = "http://47.99.92.117:28100/v1"
         const val DEFAULT_MODEL_NAME = "autoglm-phone-9b"
         const val DEFAULT_MAX_STEPS = 50
+        const val DEFAULT_NICKNAME = "包子"
     }
 
-    val apiKey: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[PreferenceKeys.API_KEY]
+    // User overrides (blank means "use app default")
+    val customApiKey: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.API_KEY].orEmpty()
     }
 
-    val baseUrl: Flow<String?> = context.dataStore.data.map { preferences ->
-        preferences[PreferenceKeys.BASE_URL] ?: DEFAULT_BASE_URL
+    val customBaseUrl: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.BASE_URL].orEmpty()
+    }
+
+    val nickname: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.NICKNAME]?.takeIf { it.isNotBlank() } ?: DEFAULT_NICKNAME
+    }
+
+    val avatarUri: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.AVATAR_URI].orEmpty()
+    }
+
+    val inviteCode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.INVITE_CODE].orEmpty()
+    }
+
+    val isLoggedIn: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.LOGGED_IN] ?: false
     }
 
     val modelName: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -103,21 +125,61 @@ class PreferencesRepository(private val context: Context) {
         preferences[PreferenceKeys.HAS_SHOWN_APPS_PERMISSION_GUIDE] ?: false
     }
 
-    suspend fun saveApiKey(apiKey: String) {
+    suspend fun saveCustomApiKey(apiKey: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.API_KEY] = apiKey
+            val normalized = apiKey.trim()
+            if (normalized.isBlank()) preferences.remove(PreferenceKeys.API_KEY)
+            else preferences[PreferenceKeys.API_KEY] = normalized
         }
     }
 
-    suspend fun saveBaseUrl(baseUrl: String) {
+    suspend fun saveCustomBaseUrl(baseUrl: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.BASE_URL] = baseUrl
+            val normalized = baseUrl.trim()
+            if (normalized.isBlank()) preferences.remove(PreferenceKeys.BASE_URL)
+            else preferences[PreferenceKeys.BASE_URL] = normalized
         }
     }
 
     suspend fun saveModelName(modelName: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.MODEL_NAME] = modelName
+        }
+    }
+
+    suspend fun clearCustomBackendOverrides() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(PreferenceKeys.API_KEY)
+            preferences.remove(PreferenceKeys.BASE_URL)
+        }
+    }
+
+    suspend fun saveNickname(nickname: String) {
+        val normalized = nickname.trim().ifBlank { DEFAULT_NICKNAME }
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.NICKNAME] = normalized
+        }
+    }
+
+    suspend fun saveAvatarUri(uri: String) {
+        context.dataStore.edit { preferences ->
+            val normalized = uri.trim()
+            if (normalized.isBlank()) preferences.remove(PreferenceKeys.AVATAR_URI)
+            else preferences[PreferenceKeys.AVATAR_URI] = normalized
+        }
+    }
+
+    suspend fun saveInviteCode(code: String) {
+        context.dataStore.edit { preferences ->
+            val normalized = code.trim()
+            if (normalized.isBlank()) preferences.remove(PreferenceKeys.INVITE_CODE)
+            else preferences[PreferenceKeys.INVITE_CODE] = normalized
+        }
+    }
+
+    suspend fun setLoggedIn(loggedIn: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.LOGGED_IN] = loggedIn
         }
     }
 
