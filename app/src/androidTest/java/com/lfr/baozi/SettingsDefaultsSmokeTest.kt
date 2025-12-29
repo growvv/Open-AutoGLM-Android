@@ -1,9 +1,8 @@
 package com.lfr.baozi
 
 import androidx.compose.ui.test.assertTextContains
-import androidx.compose.ui.test.fetchSemanticsNodes
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -21,7 +20,15 @@ class SettingsDefaultsSmokeTest {
     @Test
     fun defaultsShownInSettings() {
         // Login if needed (device may already be logged in from previous runs).
-        if (composeRule.onAllNodesWithTag("login_invite").fetchSemanticsNodes().isNotEmpty()) {
+        val needsLogin =
+            try {
+                composeRule.onNodeWithTag("login_invite").assertExists()
+                true
+            } catch (_: AssertionError) {
+                false
+            }
+
+        if (needsLogin) {
             composeRule.onNodeWithTag("login_invite").performTextInput("test")
             composeRule.onNodeWithTag("login_button").performClick()
             composeRule.waitForIdle()
