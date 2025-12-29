@@ -36,6 +36,7 @@ import com.lfr.baozi.navigation.Screen
 import com.lfr.baozi.ui.screen.AdvancedAuthScreen
 import com.lfr.baozi.ui.screen.AppDrawerContent
 import com.lfr.baozi.ui.screen.AppsScreen
+import com.lfr.baozi.ui.screen.BackendSettingsScreen
 import com.lfr.baozi.ui.screen.EdgeSwipeToHome
 import com.lfr.baozi.ui.screen.EditProfileScreen
 import com.lfr.baozi.ui.screen.InputSettingsScreen
@@ -292,6 +293,22 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                     onSwipe = { navController.popBackStack(Screen.Main.name, false) }
                                 ) { m ->
                                     ModelSettingsScreen(
+                                        modifier = m,
+                                        viewModel = settingsViewModel,
+                                        onBack = { navController.popBackStack() },
+                                        onNavigateToBackendSettings = {
+                                            navController.navigate(Screen.BackendSettings.name)
+                                        }
+                                    )
+                                }
+                            }
+
+                            composable(Screen.BackendSettings.name) {
+                                EdgeSwipeToHome(
+                                    enabled = true,
+                                    onSwipe = { navController.popBackStack(Screen.Main.name, false) }
+                                ) { m ->
+                                    BackendSettingsScreen(
                                         modifier = m,
                                         viewModel = settingsViewModel,
                                         onBack = { navController.popBackStack() }

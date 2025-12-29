@@ -18,8 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
-    val apiKey: String = "",
-    val baseUrl: String = DEFAULT_BASE_URL,
+    val customApiKey: String = "",
+    val customBaseUrl: String = "",
     val modelName: String = DEFAULT_MODEL_NAME,
     val maxStepsInput: String = DEFAULT_MAX_STEPS.toString(),
     val isAccessibilityEnabled: Boolean = false,
@@ -52,13 +52,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     
     private fun loadSettings() {
         viewModelScope.launch {
-            preferencesRepository.apiKey.collect { apiKey ->
-                _uiState.value = _uiState.value.copy(apiKey = apiKey ?: "")
+            preferencesRepository.customApiKey.collect { apiKey ->
+                _uiState.value = _uiState.value.copy(customApiKey = apiKey)
             }
         }
         viewModelScope.launch {
-            preferencesRepository.baseUrl.collect { baseUrl ->
-                _uiState.value = _uiState.value.copy(baseUrl = baseUrl ?: DEFAULT_BASE_URL)
+            preferencesRepository.customBaseUrl.collect { baseUrl ->
+                _uiState.value = _uiState.value.copy(customBaseUrl = baseUrl)
             }
         }
         viewModelScope.launch {
@@ -164,11 +164,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     
     fun updateApiKey(apiKey: String) {
-        _uiState.value = _uiState.value.copy(apiKey = apiKey)
+        _uiState.value = _uiState.value.copy(customApiKey = apiKey)
     }
     
     fun updateBaseUrl(baseUrl: String) {
-        _uiState.value = _uiState.value.copy(baseUrl = baseUrl)
+        _uiState.value = _uiState.value.copy(customBaseUrl = baseUrl)
     }
     
     fun updateModelName(modelName: String) {
@@ -185,13 +185,42 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 val parsedMaxSteps = _uiState.value.maxStepsInput.trim().toIntOrNull() ?: DEFAULT_MAX_STEPS
                 val clampedMaxSteps = parsedMaxSteps.coerceIn(1, 500)
-                preferencesRepository.saveApiKey(_uiState.value.apiKey)
-                preferencesRepository.saveBaseUrl(_uiState.value.baseUrl)
                 preferencesRepository.saveModelName(_uiState.value.modelName)
                 preferencesRepository.saveMaxSteps(clampedMaxSteps)
                 _uiState.value = _uiState.value.copy(isLoading = false, saveSuccess = true)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = "保存失败: ${e.message}")
+            }
+        }
+    }
+
+    fun saveBackendOverrides() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, saveSuccess = false)
+            try {
+                preferencesRepository.saveCustomApiKey(_uiState.value.customApiKey)
+                preferencesRepository.saveCustomBaseUrl(_uiState.value.customBaseUrl)
+                _uiState.value = _uiState.value.copy(isLoading = false, saveSuccess = true)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "保存失败: ${e.message}")
+            }
+        }
+    }
+
+    fun resetBackendOverrides() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, saveSuccess = false)
+            try {
+                preferencesRepository.clearCustomBackendOverrides()
+                _uiState.value =
+                    _uiState.value.copy(
+                        customApiKey = "",
+                        customBaseUrl = "",
+                        isLoading = false,
+                        saveSuccess = true
+                    )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "恢复失败: ${e.message}")
             }
         }
     }
