@@ -37,11 +37,15 @@ import com.lfr.baozi.ui.screen.AdvancedAuthScreen
 import com.lfr.baozi.ui.screen.AppDrawerContent
 import com.lfr.baozi.ui.screen.AppsScreen
 import com.lfr.baozi.ui.screen.EdgeSwipeToHome
+import com.lfr.baozi.ui.screen.EditProfileScreen
 import com.lfr.baozi.ui.screen.InputSettingsScreen
+import com.lfr.baozi.ui.screen.LoginScreen
 import com.lfr.baozi.ui.screen.MainScreen
 import com.lfr.baozi.ui.screen.ModelSettingsScreen
+import com.lfr.baozi.ui.screen.ProfileSettingsScreen
 import com.lfr.baozi.ui.screen.SettingsScreen
 import com.lfr.baozi.ui.theme.OpenAutoGLMAndroidTheme
+import com.lfr.baozi.ui.viewmodel.AccountViewModel
 import com.lfr.baozi.ui.viewmodel.AppsViewModel
 import com.lfr.baozi.ui.viewmodel.ChatViewModel
 import com.lfr.baozi.ui.viewmodel.SettingsViewModel
@@ -65,6 +69,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
     private val settingsViewModel by viewModels<SettingsViewModel>()
     private val appsViewModel by viewModels<AppsViewModel>()
     private val chatViewModel by viewModels<ChatViewModel>()
+    private val accountViewModel by viewModels<AccountViewModel>()
 
     private var accessibilityRefreshJob: Job? = null
 
@@ -90,8 +95,16 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                 val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
                 val scope = androidx.compose.runtime.rememberCoroutineScope()
                 val chatUiState by chatViewModel.uiState.collectAsStateWithLifecycle()
+                val accountUiState by accountViewModel.uiState.collectAsStateWithLifecycle()
                 val currentBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = currentBackStackEntry?.destination?.route ?: Screen.Main.name
+
+                if (!accountUiState.isLoggedIn) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        LoginScreen(viewModel = accountViewModel)
+                    }
+                    return@OpenAutoGLMAndroidTheme
+                }
 
                 ModalNavigationDrawer(
                     drawerState = drawerState,
@@ -100,6 +113,16 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                         AppDrawerContent(
                             conversations = chatUiState.conversations,
                             currentConversationId = chatUiState.currentConversationId,
+                            userName = accountUiState.nickname,
+                            avatarUri = accountUiState.avatarUri,
+                            onNavigateProfileSettings = {
+                                scope.launch {
+                                    drawerState.close()
+                                    navController.navigate(Screen.ProfileSettings.name) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
                             onNavigateSettings = {
                                 scope.launch {
                                     drawerState.close()
@@ -272,6 +295,36 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                         modifier = m,
                                         viewModel = settingsViewModel,
                                         onBack = { navController.popBackStack() }
+                                    )
+                                }
+                            }
+
+                            composable(Screen.ProfileSettings.name) {
+                                EdgeSwipeToHome(
+                                    enabled = true,
+                                    onSwipe = { navController.popBackStack(Screen.Main.name, false) }
+                                ) { m ->
+                                    ProfileSettingsScreen(
+                                        modifier = m,
+                                        viewModel = accountViewModel,
+                                        onBack = { navController.popBackStack() },
+                                        onNavigateEdit = {
+                                            navController.navigate(Screen.ProfileEdit.name)
+                                        }
+                                    )
+                                }
+                            }
+
+                            composable(Screen.ProfileEdit.name) {
+                                EdgeSwipeToHome(
+                                    enabled = true,
+                                    onSwipe = { navController.popBackStack() }
+                                ) { m ->
+                                    EditProfileScreen(
+                                        modifier = m,
+                                        viewModel = accountViewModel,
+                                        onCancel = { navController.popBackStack() },
+                                        onDone = { navController.popBackStack() }
                                     )
                                 }
                             }

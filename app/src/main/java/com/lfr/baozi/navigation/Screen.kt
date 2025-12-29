@@ -5,6 +5,9 @@ enum class Screen {
     Settings,
     AppsSettings,
     ModelSettings,
+    BackendSettings,
+    ProfileSettings,
+    ProfileEdit,
     InputSettings,
     AdvancedAuth
 }
