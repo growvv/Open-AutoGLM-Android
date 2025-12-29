@@ -1,11 +1,20 @@
 package com.lfr.baozi.ui.screen
 
+import android.content.ContentValues
 import android.content.Intent
+import android.os.Build
 import android.net.Uri
+import android.os.Environment
 import android.provider.Settings
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -31,8 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,9 +65,11 @@ import com.lfr.baozi.util.ActivityLaunchUtils
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     modifier: Modifier = Modifier,
@@ -126,102 +141,108 @@ fun ChatScreen(
 
     Column(modifier = modifier.fillMaxSize()) {
         // 信息流（任务 -> 步骤 -> 结果）
-        LazyColumn(
-            state = listState,
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            item(key = "task_header") {
-                TaskHeaderCard(
-                    taskText = taskMessage?.content,
-                    startedAt = startedAt,
-                    formatter = timeFormatter,
-                    status = uiState.taskStatus
-                )
-            }
-
-            itemsIndexed(stepMessages, key = { _, m -> m.id }) { index, message ->
-                StepCard(
-                    stepNumber = index + 1,
-                    message = message,
-                    stepTiming = uiState.stepTimings.firstOrNull { it.step == index },
-                    onImageClick = { path ->
-                        val imageIndex = allImageMessages.indexOfFirst { it.imagePath == path }
-                        if (imageIndex != -1) previewImageIndex = imageIndex
-                    }
-                )
-            }
-
-            if (uiState.isLoading) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors =
-                            CardDefaults.cardColors(
-                                containerColor =
-                                    if (uiState.isPaused) Color(0xFFFFF9C4)
-                                    else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (uiState.isPaused) {
-                                Icon(
-                                    imageVector = Icons.Default.Pause,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = Color(0xFFFBC02D)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    "任务已暂停",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF827717)
-                                )
-                            } else {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    "执行中…（步骤 ${stepMessages.size + 1}）",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (showResultCard) {
-                item(key = "task_result") {
-                    TaskResultCard(
-                        status = uiState.taskStatus,
+        CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+            LazyColumn(
+                state = listState,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                item(key = "task_header") {
+                    TaskHeaderCard(
+                        taskText = taskMessage?.content,
                         startedAt = startedAt,
-                        endedAt = endedAt,
-                        message = uiState.taskResultMessage
+                        formatter = timeFormatter,
+                        status = uiState.taskStatus
                     )
                 }
-            }
 
-            if (showRecommendations) {
-                item(key = "recommendations") {
-                    RecommendationsSection(
-                        onPick = { text ->
-                            scope.launch {
-                                val started = viewModel.sendMessage(text)
-                                if (started) userInput = ""
-                            }
+                itemsIndexed(stepMessages, key = { _, m -> m.id }) { index, message ->
+                    StepCard(
+                        stepNumber = index + 1,
+                        message = message,
+                        stepTiming = uiState.stepTimings.firstOrNull { it.step == index },
+                        onImageClick = { path ->
+                            val imageIndex = allImageMessages.indexOfFirst { it.imagePath == path }
+                            if (imageIndex != -1) previewImageIndex = imageIndex
                         }
                     )
+                }
+
+                if (uiState.isLoading) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors =
+                                CardDefaults.cardColors(
+                                    containerColor =
+                                        if (uiState.isPaused) Color(0xFFFFF9C4)
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (uiState.isPaused) {
+                                    Icon(
+                                        imageVector = Icons.Default.Pause,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = Color(0xFFFBC02D)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "任务已暂停",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color(0xFF827717)
+                                    )
+                                } else {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "执行中…（步骤 ${stepMessages.size + 1}）",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (showResultCard) {
+                    item(key = "task_result") {
+                        TaskResultCard(
+                            status = uiState.taskStatus,
+                            startedAt = startedAt,
+                            endedAt = endedAt,
+                            message = uiState.taskResultMessage
+                        )
+                    }
+                }
+
+                if (showRecommendations) {
+                    item(key = "recommendations") {
+                        val seed =
+                            (uiState.taskEndedAt ?: uiState.taskStartedAt ?: 0L) xor
+                                (uiState.currentConversationId?.hashCode()?.toLong() ?: 0L)
+                        RecommendationsSection(
+                            seed = seed,
+                            onPick = { text ->
+                                scope.launch {
+                                    val started = viewModel.sendMessage(text)
+                                    if (started) userInput = ""
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -335,6 +356,10 @@ private fun TaskHeaderCard(
     formatter: SimpleDateFormat,
     status: ConversationStatus
 ) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val copyText = taskText?.takeIf { it.isNotBlank() } ?: "尚未开始任务，输入描述后点击发送"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -363,13 +388,29 @@ private fun TaskHeaderCard(
                 Text(
                     text = taskText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier =
+                        Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                clipboardManager.setText(AnnotatedString(copyText))
+                                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                 )
             } else {
                 Text(
                     text = "尚未开始任务，输入描述后点击发送",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                    modifier =
+                        Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                clipboardManager.setText(AnnotatedString(copyText))
+                                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                 )
             }
 
@@ -391,6 +432,10 @@ private fun StepCard(
     stepTiming: StepTiming?,
     onImageClick: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -429,7 +474,17 @@ private fun StepCard(
                                 fontSize = 12.sp,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                             ),
-                        modifier = Modifier.padding(7.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = {},
+                                    onLongClick = {
+                                        clipboardManager.setText(AnnotatedString(actionText))
+                                        Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                                .padding(7.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -475,15 +530,21 @@ private fun StepCard(
                                 .fillMaxWidth()
                                 .heightIn(min = 140.dp, max = 420.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .clickable { onImageClick(path) },
+                                .combinedClickable(
+                                    onClick = { onImageClick(path) },
+                                    onLongClick = {
+                                        scope.launch {
+                                            val uri =
+                                                saveImageToGallery(
+                                                    context = context,
+                                                    file = File(path)
+                                                )
+                                            val msg = if (uri != null) "已保存到相册" else "保存失败"
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                ),
                         contentScale = ContentScale.Fit
-                    )
-                    Text(
-                        text = "点击图片可全屏查看",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -498,6 +559,8 @@ private fun ExpandableTextBlock(
     id: String
 ) {
     var expanded by rememberSaveable(id) { mutableStateOf(false) }
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
 
     Surface(
         tonalElevation = 0.dp,
@@ -533,7 +596,15 @@ private fun ExpandableTextBlock(
                             fontSize = 12.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                         ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier =
+                        Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                clipboardManager.setText(AnnotatedString(text))
+                                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                 )
             }
         }
@@ -547,6 +618,9 @@ private fun TaskResultCard(
     endedAt: Long?,
     message: String?
 ) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
     val (containerColor, title) =
         when (status) {
             ConversationStatus.COMPLETED -> MaterialTheme.colorScheme.secondaryContainer to "任务完成"
@@ -567,7 +641,18 @@ private fun TaskResultCard(
             Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
             if (!message.isNullOrBlank()) {
-                Text(text = message, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier =
+                        Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                clipboardManager.setText(AnnotatedString(message))
+                                Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                )
             }
 
             totalMs?.let {
@@ -588,16 +673,124 @@ private fun TaskResultCard(
 
 @Composable
 private fun RecommendationsSection(
+    seed: Long,
     onPick: (String) -> Unit
 ) {
-    val suggestions =
+    val tasks =
         remember {
             listOf(
                 "打开微信，查看未读消息",
+                "打开微信，搜索并打开一个联系人",
+                "打开微信，进入群聊并查看最新消息",
+                "打开微信，给某个联系人发送“我晚点回复你”",
+                "打开微信，查看朋友圈",
                 "打开支付宝，查看账单",
-                "打开小红书，搜索“包子”",
-                "打开设置，连接 Wi‑Fi"
+                "打开支付宝，查看余额",
+                "打开支付宝，搜索“地铁”并打开乘车码",
+                "打开支付宝，搜索“信用”并查看信用分",
+                "打开支付宝，打开生活缴费并查看项目",
+                "打开淘宝，搜索“蓝牙耳机”，筛选销量排序",
+                "打开淘宝，搜索“手机壳”，筛选包邮",
+                "打开淘宝，查看订单列表",
+                "打开淘宝，查看购物车并勾选一件商品",
+                "打开京东，搜索“充电宝”，筛选自营",
+                "打开京东，查看订单列表",
+                "打开拼多多，搜索“纸巾”，按价格排序",
+                "打开美团，搜索“奶茶”，选择附近门店",
+                "打开美团，搜索“火锅”，看看评分最高的",
+                "打开饿了么，搜索“咖啡”，看看优惠",
+                "打开小红书，搜索“包子”，看热门笔记",
+                "打开小红书，搜索“健身入门”，看收藏最多的",
+                "打开抖音，搜索“学习方法”，看热门视频",
+                "打开抖音，搜索“手机摄影”，看教程",
+                "打开B站，搜索“Kotlin Compose”，看入门视频",
+                "打开B站，搜索“英语听力”，找一个播放列表",
+                "打开微博，查看热搜榜",
+                "打开知乎，搜索“时间管理”，看看高赞回答",
+                "打开今日头条，查看推荐新闻",
+                "打开网易云音乐，搜索“轻音乐”，播放一首",
+                "打开QQ音乐，搜索“周杰伦”，播放热门歌曲",
+                "打开哔哩哔哩音乐区，看看热门",
+                "打开高德地图，搜索“附近充电宝”",
+                "打开高德地图，搜索“地铁站”，规划路线",
+                "打开百度地图，搜索“附近停车场”",
+                "打开滴滴出行，输入目的地查看价格",
+                "打开12306，查询明天从北京到上海的车次",
+                "打开携程，搜索“周末酒店”，按价格排序",
+                "打开飞猪，搜索“机票”，查看最近日期价格",
+                "打开Keep，打开一次训练计划",
+                "打开微信读书，继续阅读上次的书",
+                "打开得到，查看今日推荐",
+                "打开日历，查看本周日程",
+                "打开闹钟，新增一个明天8点的闹钟",
+                "打开设置，连接 Wi‑Fi",
+                "打开设置，查看电池使用情况",
+                "打开设置，打开蓝牙并搜索设备",
+                "打开设置，调整亮度到50%",
+                "打开设置，查看存储空间",
+                "打开相机，切换到人像模式",
+                "打开相册，查看最近拍摄的照片",
+                "打开相册，选择一张照片分享给微信",
+                "打开文件管理，查看下载目录",
+                "打开浏览器，搜索“今天天气”",
+                "打开浏览器，搜索“附近好吃的”",
+                "打开浏览器，打开一个收藏夹",
+                "打开百度，搜索“包子”",
+                "打开夸克浏览器，搜索“PDF转图片”",
+                "打开WPS，打开最近文档",
+                "打开WPS，新建一个空白文档",
+                "打开邮箱，查看未读邮件",
+                "打开邮箱，搜索“验证码”邮件",
+                "打开微信支付分，查看免押服务",
+                "打开招商银行，查看余额（不进行转账）",
+                "打开支付宝，查看花呗额度",
+                "打开大众点评，搜索“烧烤”并按距离排序",
+                "打开大众点评，查看附近咖啡店评分",
+                "打开豆瓣，搜索“电影推荐”",
+                "打开豆瓣，查看“想看”的电影列表",
+                "打开携程，搜索“景点门票”",
+                "打开同程旅行，搜索“火车票”",
+                "打开携程，查看行程订单",
+                "打开滴答清单，新增“买包子”任务",
+                "打开备忘录，记录“今天要完成的三件事”",
+                "打开记账本，新增一笔支出",
+                "打开计算器，计算 12345 × 678",
+                "打开翻译，翻译“我想吃包子”到英语",
+                "打开翻译，翻译一段中文到日语",
+                "打开微信，打开一个小程序",
+                "打开支付宝，打开一个小程序",
+                "打开QQ，查看未读消息",
+                "打开QQ，进入一个群聊并查看消息",
+                "打开短信，查看最近短信",
+                "打开电话，查看通话记录",
+                "打开联系人，搜索一个联系人",
+                "打开网易新闻，查看头条",
+                "打开腾讯新闻，查看热点",
+                "打开天气，查看未来7天预报",
+                "打开股票软件，查看自选股（不交易）",
+                "打开理财软件，查看收益（不交易）",
+                "打开浏览器，搜索“番茄炒蛋做法”",
+                "打开浏览器，搜索“低脂晚餐”",
+                "打开美团，搜索“药店”，查看营业时间",
+                "打开饿了么，搜索“夜宵”，看推荐",
+                "打开地图，搜索“附近超市”",
+                "打开地图，搜索“附近ATM”",
+                "打开B站，搜索“番剧推荐”",
+                "打开抖音，搜索“美食探店”",
+                "打开小红书，搜索“穿搭”",
+                "打开知乎，查看“热榜”",
+                "打开微博，查看关注列表",
+                "打开设置，查看无障碍服务状态",
+                "打开设置，查看通知管理",
+                "打开设置，查看应用权限管理"
             )
+        }
+
+    val suggestions =
+        remember(seed) {
+            val random = kotlin.random.Random(seed)
+            val count = random.nextInt(from = 2, until = 7) // 2~6
+            tasks.shuffled(random).take(count)
         }
 
     Column(
@@ -759,6 +952,8 @@ fun ImagePreviewDialog(
     onDismiss: () -> Unit
 ) {
     val pagerState = rememberPagerState(initialPage = initialIndex) { imageMessages.size }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -771,24 +966,61 @@ fun ImagePreviewDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f))
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                pageSpacing = 16.dp,
-                beyondViewportPageCount = 1
-            ) { page ->
-                val message = imageMessages[page]
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    AsyncImage(
-                        model = File(message.imagePath!!),
-                        contentDescription = "预览图片",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable(onClick = onDismiss),
-                        contentScale = ContentScale.Fit
-                    )
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { onDismiss() }
+            )
+
+            Card(
+                modifier =
+                    Modifier
+                        .fillMaxWidth(0.9f)
+                        .fillMaxHeight(0.82f)
+                        .align(Alignment.Center),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    pageSpacing = 16.dp,
+                    beyondViewportPageCount = 1
+                ) { page ->
+                    val message = imageMessages[page]
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        AsyncImage(
+                            model = File(message.imagePath!!),
+                            contentDescription = "预览图片",
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(12.dp)
+                                    .pointerInput(message.imagePath) {
+                                        detectTapGestures(
+                                            onDoubleTap = { onDismiss() },
+                                            onLongPress = {
+                                                scope.launch {
+                                                    val uri =
+                                                        saveImageToGallery(
+                                                            context = context,
+                                                            file = File(message.imagePath)
+                                                        )
+                                                    val msg = if (uri != null) "已保存到相册" else "保存失败"
+                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        )
+                                    },
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
             }
 
@@ -798,33 +1030,46 @@ fun ImagePreviewDialog(
                     Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
-                        .padding(top = 48.dp, start = 16.dp, end = 16.dp),
+                        .padding(top = 28.dp, start = 16.dp, end = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 页码指示器
-                Surface(color = Color.Black.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp)) {
-                    Text(
-                        text = "${pagerState.currentPage + 1} / ${imageMessages.size}",
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                    )
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "${pagerState.currentPage + 1} / ${imageMessages.size}",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
 
                 // 关闭按钮
-                IconButton(
+                FilledTonalIconButton(
                     onClick = onDismiss,
-                    modifier =
-                        Modifier.background(
-                            Color.Black.copy(alpha = 0.5f),
-                            RoundedCornerShape(24.dp)
+                    colors =
+                        IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
                         )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "关闭",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -832,37 +1077,86 @@ fun ImagePreviewDialog(
             // 底部动作信息
             val currentMessage = imageMessages[pagerState.currentPage]
             if (currentMessage.action != null) {
-                Surface(
+                Card(
                     modifier =
                         Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
-                    color = Color.Black.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(8.dp)
+                            .padding(bottom = 28.dp, start = 16.dp, end = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "动作执行:",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.LightGray
+                            text = "动作执行",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = currentMessage.action,
-                            style =
-                                MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily =
-                                        androidx.compose.ui.text.font.FontFamily
-                                            .Monospace
-                                ),
-                            color = Color.White,
-                            maxLines = 5,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Surface(
+                            tonalElevation = 0.dp,
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = currentMessage.action,
+                                style =
+                                    MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                    ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 5,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+private suspend fun saveImageToGallery(context: android.content.Context, file: File): Uri? {
+    return withContext(Dispatchers.IO) {
+        if (!file.exists()) return@withContext null
+
+        val mimeType = when (file.extension.lowercase(Locale.getDefault())) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "webp" -> "image/webp"
+            else -> "image/png"
+        }
+
+        val resolver = context.contentResolver
+        val values =
+            ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "baozi_${System.currentTimeMillis()}.${file.extension.ifBlank { "png" }}")
+                put(MediaStore.Images.Media.MIME_TYPE, mimeType)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(
+                        MediaStore.Images.Media.RELATIVE_PATH,
+                        Environment.DIRECTORY_PICTURES + File.separator + "Baozi"
+                    )
+                }
+            }
+
+        var uri: Uri? = null
+        try {
+            uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@withContext null
+            resolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { input ->
+                    input.copyTo(out)
+                }
+            } ?: return@withContext null
+            return@withContext uri
+        } catch (_: Exception) {
+            if (uri != null) {
+                try {
+                    resolver.delete(uri, null, null)
+                } catch (_: Exception) {
+                }
+            }
+            return@withContext null
         }
     }
 }
