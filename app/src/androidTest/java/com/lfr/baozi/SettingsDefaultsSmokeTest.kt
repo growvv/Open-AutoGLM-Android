@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -17,6 +18,11 @@ class SettingsDefaultsSmokeTest {
 
     @Test
     fun defaultsShownInSettings() {
+        // Login first
+        composeRule.onNodeWithTag("login_invite").performTextInput("test")
+        composeRule.onNodeWithTag("login_button").performClick()
+        composeRule.waitForIdle()
+
         composeRule.onNodeWithTag("drawer_toggle").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("drawer_settings").performClick()
@@ -25,8 +31,12 @@ class SettingsDefaultsSmokeTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings_item_model").performClick()
 
-        composeRule.onNodeWithTag("settings_apiKey").assertTextContains("")
-        composeRule.onNodeWithTag("settings_baseUrl").assertTextContains("http://47.99.92.117:28100/v1")
+        composeRule.onNodeWithTag("settings_default_baseUrl").assertTextContains("http://47.99.92.117:28100/v1")
         composeRule.onNodeWithTag("settings_modelName").assertTextContains("autoglm-phone-9b")
+
+        composeRule.onNodeWithTag("settings_item_backend").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_custom_baseUrl").assertTextContains("")
+        composeRule.onNodeWithTag("settings_custom_apiKey").assertTextContains("")
     }
 }
