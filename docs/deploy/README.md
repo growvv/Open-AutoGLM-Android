@@ -117,7 +117,7 @@ Fix:
 - Chat execution no longer rejects immediately if the service instance is not yet available; it waits briefly for connection.
 
 ### Max Steps setting
-- Added `Max Steps (1~500)` in Settings
+- Added `Max Steps (1~50)` in Settings
 - Persisted via DataStore
 - Default changed to `20` (still configurable), and the task loop uses the configured value instead of a hard-coded 50
 

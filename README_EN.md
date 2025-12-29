@@ -45,7 +45,7 @@ On first launch, the app shows a login page. An **invite code** is required (cur
 1. Open the app, open the drawer, and go to the "Settings" page
 2. If your backend requires auth (e.g. Zhipu AI https://open.bigmodel.cn/), apply for an API Key first
 3. In “Model & Execution”, configure:
-   - **Max Steps**: maximum steps (1~500, default 20)
+   - **Max Steps**: maximum steps (1~50, default 20)
 4. Optional: to override backend settings, go to “Model & Execution” → “自定义服务端 (Custom Backend)”
    - **Base URL**: leave blank to use default `http://47.99.92.117:28100/v1`
    - **API Key**: optional (blank means no `Authorization` header)
