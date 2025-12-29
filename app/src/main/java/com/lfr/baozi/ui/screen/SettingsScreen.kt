@@ -153,7 +153,7 @@ fun SettingsScreen(
                             icon = Icons.Default.Key,
                             iconBg = Color(0xFFFFB300),
                             title = "模型与执行",
-                            subtitle = "Model / Max Steps",
+                            subtitle = "最大步数 / 服务端",
                             tag = "settings_item_model",
                             onClick = onNavigateToModelSettings
                         ),

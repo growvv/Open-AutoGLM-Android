@@ -60,7 +60,7 @@ class PreferencesRepository(private val context: Context) {
     companion object {
         const val DEFAULT_BASE_URL = "http://47.99.92.117:28100/v1"
         const val DEFAULT_MODEL_NAME = "autoglm-phone-9b"
-        const val DEFAULT_MAX_STEPS = 50
+        const val DEFAULT_MAX_STEPS = 20
         const val DEFAULT_NICKNAME = "包子"
     }
 
