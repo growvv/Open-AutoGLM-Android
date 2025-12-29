@@ -150,10 +150,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
     
-    fun updateApiKey(apiKey: String) {
-        _uiState.value = _uiState.value.copy(apiKey = apiKey)
-    }
-    
     fun updateBaseUrl(baseUrl: String) {
         _uiState.value = _uiState.value.copy(baseUrl = baseUrl)
     }

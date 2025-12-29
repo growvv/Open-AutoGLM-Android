@@ -8,9 +8,14 @@ import androidx.room.RoomDatabase
 /**
  * Room 数据库抽象类
  */
-@Database(entities = [Conversation::class, SavedChatMessage::class], version = 1, exportSchema = false)
+@Database(
+    entities = [Conversation::class, SavedChatMessage::class, ModelConfig::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
+    abstract fun modelConfigDao(): ModelConfigDao
 
     companion object {
         @Volatile
@@ -22,7 +27,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "app_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration(false) // 数据库版本更新时使用破坏性迁移
+                    .build()
                 INSTANCE = instance
                 instance
             }

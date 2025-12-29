@@ -7,7 +7,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.open_autoglm_android.data.ConversationRepository
 import com.example.open_autoglm_android.data.PreferencesRepository
+import com.example.open_autoglm_android.data.database.AppDatabase
 import com.example.open_autoglm_android.data.database.Conversation
+import com.example.open_autoglm_android.data.database.ModelConfigRepository
 import com.example.open_autoglm_android.data.database.SavedChatMessage
 import com.example.open_autoglm_android.domain.ActionExecutor
 import com.example.open_autoglm_android.domain.AppRegistry
@@ -67,6 +69,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     private val preferencesRepository = PreferencesRepository(application)
     private val conversationRepository = ConversationRepository(application)
+    private val modelConfigRepository = ModelConfigRepository(AppDatabase.getDatabase(application).modelConfigDao())
     
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -84,8 +87,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         setupFloatingWindowListeners()
         viewModelScope.launch {
             // 初始化 ModelClient
-            val baseUrl = preferencesRepository.getBaseUrlSync()
-            val apiKey = preferencesRepository.getApiKeySync() ?: "EMPTY"
+            val selectedModel = modelConfigRepository.getSelectedModelConfigSync()
+            val baseUrl = selectedModel?.baseUrl ?: "https://open.bigmodel.cn/api/paas/v4"
+            val apiKey = selectedModel?.apiKey ?: "EMPTY"
             modelClient = ModelClient(getApplication(), baseUrl, apiKey)
             
             // 初始化 ActionExecutor
@@ -106,6 +110,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = _uiState.value.copy(currentConversationId = conversationId)
                     // 加载对话历史
                     loadConversationMessages(conversationId)
+                }
+            }
+            
+            // 监听选中模型变化
+            launch {
+                modelConfigRepository.selectedModelConfig.collect { selectedModel ->
+                    if (selectedModel != null) {
+                        // 更新ModelClient
+                        modelClient = ModelClient(getApplication(), selectedModel.baseUrl, selectedModel.apiKey)
+                    }
                 }
             }
 
@@ -266,9 +280,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 AppRegistry.initialize(getApplication())
                 
                 // 重新初始化 ModelClient（以防配置变化）
-                val baseUrl = preferencesRepository.getBaseUrlSync()
-                val apiKey = preferencesRepository.getApiKeySync() ?: "EMPTY"
-                val modelName = preferencesRepository.getModelNameSync()
+
+                val selectedModel =   modelConfigRepository.getSelectedModelConfigSync()
+                val baseUrl = selectedModel?.baseUrl ?: "https://open.bigmodel.cn/api/paas/v4"
+                val apiKey = selectedModel?.apiKey ?: "EMPTY"
+                val modelName = selectedModel?.modelName ?: "autoglm-phone"
                 
                 if (apiKey == "EMPTY" || apiKey.isEmpty()) {
                     _uiState.value = _uiState.value.copy(

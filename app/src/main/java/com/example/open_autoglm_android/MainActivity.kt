@@ -35,6 +35,7 @@ import com.example.open_autoglm_android.navigation.Screen
 import com.example.open_autoglm_android.ui.screen.AdvancedAuthScreen
 import com.example.open_autoglm_android.ui.screen.AppsScreen
 import com.example.open_autoglm_android.ui.screen.MainScreen
+import com.example.open_autoglm_android.ui.screen.ModelConfigScreen
 import com.example.open_autoglm_android.ui.screen.PromptLogScreen
 import com.example.open_autoglm_android.ui.screen.SettingsScreen
 import com.example.open_autoglm_android.ui.theme.OpenAutoGLMAndroidTheme
@@ -190,8 +191,16 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                 viewModel = settingsViewModel,
                                 onNavigateToAdvancedAuth = {
                                     navController.navigate(Screen.AdvancedAuth.name)
+                                },
+                                onNavigateToModelConfig = {
+                                    navController.navigate(Screen.ModelConfig.name)
                                 }
                             )
+                        }
+                        composable(Screen.ModelConfig.name){
+                            ModelConfigScreen {
+                                navController.popBackStack()
+                            }
                         }
                     }
                 }

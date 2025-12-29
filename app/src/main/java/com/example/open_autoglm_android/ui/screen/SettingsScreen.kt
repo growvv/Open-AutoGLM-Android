@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,11 +20,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.open_autoglm_android.data.InputMode
+import com.example.open_autoglm_android.data.database.ModelConfig
+import com.example.open_autoglm_android.ui.viewmodel.ModelConfigViewModel
 import com.example.open_autoglm_android.ui.viewmodel.SettingsViewModel
 import com.example.open_autoglm_android.util.AuthHelper
 import kotlin.math.roundToInt
@@ -34,9 +35,12 @@ import kotlin.math.roundToInt
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(),
-    onNavigateToAdvancedAuth: () -> Unit
+    modelConfigViewModel: ModelConfigViewModel = viewModel(),
+    onNavigateToAdvancedAuth: () -> Unit,
+    onNavigateToModelConfig: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val modelConfigUiState by modelConfigViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val hasWriteSecureSettings = remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -319,40 +323,73 @@ fun SettingsScreen(
 
             Divider()
 
-            OutlinedTextField(
-                value = uiState.apiKey,
-                onValueChange = { viewModel.updateApiKey(it) },
-                label = { Text("API Key") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
+            // 模型配置管理入口
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "模型配置",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            modelConfigUiState.selectedModel?.let {
+                                Text(
+                                    text = "当前选中: ${it.name} (${it.modelName})",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            } ?: run {
+                                Text(
+                                    text = "未配置任何模型",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        IconButton(onClick = onNavigateToModelConfig) {
+                            Icon(Icons.Filled.Settings, contentDescription = "管理模型")
+                        }
+                    }
+                }
+            }
 
-            OutlinedTextField(
-                value = uiState.baseUrl,
-                onValueChange = { viewModel.updateBaseUrl(it) },
-                label = { Text("Base URL") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            OutlinedTextField(
-                value = uiState.modelName,
-                onValueChange = { viewModel.updateModelName(it) },
-                label = { Text("Model Name") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Button(
-                onClick = { viewModel.saveSettings() },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading
-            ) {
-                if (uiState.isLoading) CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                else Text("保存设置")
+            // 已选模型详情
+            modelConfigUiState.selectedModel?.let {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "已选模型详情",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "名称: ${it.name}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "模型: ${it.modelName}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Base URL: ${it.baseUrl}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "API Key: ${it.apiKey.take(10)}...",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
             }
 
             uiState.saveSuccess?.let {

@@ -45,13 +45,28 @@ class ModelClient(
             .writeTimeout(120, TimeUnit.SECONDS)
             .build()
         
+        // 验证并修复URL格式
+        val validatedBaseUrl = validateAndFixUrl(baseUrl)
+        
         val retrofit = Retrofit.Builder()
-            .baseUrl(baseUrl.ensureTrailingSlash())
+            .baseUrl(validatedBaseUrl.ensureTrailingSlash())
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
         
         api = retrofit.create(AutoGLMApi::class.java)
+    }
+    
+    /**
+     * 验证并修复URL格式
+     */
+    private fun validateAndFixUrl(url: String): String {
+        var fixedUrl = url.trim()
+        // 如果URL没有协议头，添加默认的https协议
+        if (!fixedUrl.startsWith("http://") && !fixedUrl.startsWith("https://")) {
+            fixedUrl = "https://$fixedUrl"
+        }
+        return fixedUrl
     }
     
     /**

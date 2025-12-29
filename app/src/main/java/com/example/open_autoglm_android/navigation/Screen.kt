@@ -5,5 +5,6 @@ enum class Screen {
     PromptLog,
     Apps,
     AdvancedAuth,
-    Settings
+    Settings,
+    ModelConfig
 }
