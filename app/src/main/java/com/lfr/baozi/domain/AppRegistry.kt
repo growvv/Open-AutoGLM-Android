@@ -1,10 +1,10 @@
-package com.example.open_autoglm_android.domain
+package com.lfr.baozi.domain
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
-import com.example.open_autoglm_android.data.PreferencesRepository
+import com.lfr.baozi.data.PreferencesRepository
 import kotlinx.coroutines.runBlocking
 
 /**

@@ -1,11 +1,11 @@
-package com.example.open_autoglm_android.util
+package com.lfr.baozi.util
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
-import com.example.open_autoglm_android.service.AutoGLMAccessibilityService
+import com.lfr.baozi.service.AutoGLMAccessibilityService
 
 object AccessibilityServiceHelper {
     
@@ -13,6 +13,10 @@ object AccessibilityServiceHelper {
      * 检查无障碍服务是否已启用（通过系统设置检查）
      */
     fun isAccessibilityServiceEnabled(context: Context): Boolean {
+        // If the service process is already connected, treat it as enabled.
+        // This avoids some OEM/ROM cases where system settings parsing is delayed or inconsistent.
+        if (isServiceRunning()) return true
+
         val accessibilityManager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
             ?: return false
 
@@ -37,12 +41,32 @@ object AccessibilityServiceHelper {
         if (enabledByManager) return true
 
         // Fallback: parse secure settings list
+        val cr = context.contentResolver
         val enabledServicesSetting =
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-                ?: return false
+            try {
+                Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            } catch (_: SecurityException) {
+                null
+            }.orEmpty()
 
-        val flattened = expectedComponentName.flattenToString()
-        return enabledServicesSetting.contains(flattened)
+        val masterEnabled =
+            try {
+                Settings.Secure.getInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
+            } catch (_: SecurityException) {
+                false
+            }
+
+        if (!masterEnabled || enabledServicesSetting.isBlank()) return false
+
+        val expectedFull = expectedComponentName.flattenToString()
+        val expectedShort = expectedComponentName.flattenToShortString()
+
+        return enabledServicesSetting
+            .split(':')
+            .asSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .any { it == expectedFull || it == expectedShort }
     }
     
     /**

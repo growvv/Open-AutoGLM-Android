@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.util
+package com.lfr.baozi.util
 
 import android.Manifest
 import android.content.ClipData

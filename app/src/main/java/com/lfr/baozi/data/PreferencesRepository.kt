@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.data
+package com.lfr.baozi.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -24,7 +24,10 @@ object PreferenceKeys {
     val IMAGE_COMPRESSION_ENABLED = booleanPreferencesKey("image_compression_enabled")
     val IMAGE_COMPRESSION_LEVEL = intPreferencesKey("image_compression_level")
     val MAX_STEPS = intPreferencesKey("max_steps")
-    val ENABLED_APPS = stringSetPreferencesKey("enabled_apps")  // 存储已启用应用的包名集合
+    // App control selection
+    val ENABLED_APPS = stringSetPreferencesKey("enabled_apps") // legacy: allow-list (may be large)
+    val DISABLED_APPS = stringSetPreferencesKey("disabled_apps") // deny-list (preferred)
+    val APPS_FILTER_MODE = intPreferencesKey("apps_filter_mode") // 0: deny-list, 1: allow-list
     val HAS_SHOWN_APPS_PERMISSION_GUIDE =
         booleanPreferencesKey("has_shown_apps_permission_guide")
 }
@@ -36,6 +39,15 @@ enum class InputMode(val value: Int) {
 
     companion object {
         fun fromInt(value: Int) = InputMode.entries.firstOrNull { it.value == value } ?: SET_TEXT
+    }
+}
+
+enum class AppsFilterMode(val value: Int) {
+    DENY_LIST(0),
+    ALLOW_LIST(1);
+
+    companion object {
+        fun fromIntOrNull(value: Int?): AppsFilterMode? = entries.firstOrNull { it.value == value }
     }
 }
 
@@ -81,6 +93,10 @@ class PreferencesRepository(private val context: Context) {
 
     val enabledApps: Flow<Set<String>> = context.dataStore.data.map { preferences ->
         preferences[PreferenceKeys.ENABLED_APPS] ?: emptySet()
+    }
+
+    val disabledApps: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.DISABLED_APPS] ?: emptySet()
     }
 
     val hasShownAppsPermissionGuide: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -138,7 +154,17 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun saveEnabledApps(enabledApps: Set<String>) {
         context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.APPS_FILTER_MODE] = AppsFilterMode.ALLOW_LIST.value
             preferences[PreferenceKeys.ENABLED_APPS] = enabledApps
+            preferences.remove(PreferenceKeys.DISABLED_APPS)
+        }
+    }
+
+    suspend fun saveDisabledApps(disabledApps: Set<String>) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferenceKeys.APPS_FILTER_MODE] = AppsFilterMode.DENY_LIST.value
+            preferences[PreferenceKeys.DISABLED_APPS] = disabledApps
+            preferences.remove(PreferenceKeys.ENABLED_APPS)
         }
     }
 
@@ -150,14 +176,32 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun toggleAppEnabled(packageName: String, enabled: Boolean) {
         context.dataStore.edit { preferences ->
-            val currentApps =
+            val mode =
+                AppsFilterMode.fromIntOrNull(preferences[PreferenceKeys.APPS_FILTER_MODE])
+            val legacyAllowList =
                 preferences[PreferenceKeys.ENABLED_APPS]?.toMutableSet() ?: mutableSetOf()
-            if (enabled) {
-                currentApps.add(packageName)
-            } else {
-                currentApps.remove(packageName)
+            val denyList =
+                preferences[PreferenceKeys.DISABLED_APPS]?.toMutableSet() ?: mutableSetOf()
+
+            val effectiveMode =
+                mode
+                    ?: if (legacyAllowList.isNotEmpty()) AppsFilterMode.ALLOW_LIST
+                    else AppsFilterMode.DENY_LIST
+
+            preferences[PreferenceKeys.APPS_FILTER_MODE] = effectiveMode.value
+
+            when (effectiveMode) {
+                AppsFilterMode.DENY_LIST -> {
+                    if (enabled) denyList.remove(packageName) else denyList.add(packageName)
+                    preferences[PreferenceKeys.DISABLED_APPS] = denyList
+                    preferences.remove(PreferenceKeys.ENABLED_APPS)
+                }
+                AppsFilterMode.ALLOW_LIST -> {
+                    if (enabled) legacyAllowList.add(packageName) else legacyAllowList.remove(packageName)
+                    preferences[PreferenceKeys.ENABLED_APPS] = legacyAllowList
+                    preferences.remove(PreferenceKeys.DISABLED_APPS)
+                }
             }
-            preferences[PreferenceKeys.ENABLED_APPS] = currentApps
         }
     }
 
@@ -213,6 +257,18 @@ class PreferencesRepository(private val context: Context) {
         }.firstOrNull() ?: emptySet()
     }
 
+    suspend fun getDisabledAppsSync(): Set<String> {
+        return context.dataStore.data.map {
+            it[PreferenceKeys.DISABLED_APPS] ?: emptySet()
+        }.firstOrNull() ?: emptySet()
+    }
+
+    suspend fun getAppsFilterModeSyncOrNull(): AppsFilterMode? {
+        return context.dataStore.data.map { prefs ->
+            AppsFilterMode.fromIntOrNull(prefs[PreferenceKeys.APPS_FILTER_MODE])
+        }.firstOrNull()
+    }
+
     suspend fun getHasShownAppsPermissionGuideSync(): Boolean {
         return context.dataStore.data.map {
             it[PreferenceKeys.HAS_SHOWN_APPS_PERMISSION_GUIDE] ?: false
@@ -220,8 +276,21 @@ class PreferencesRepository(private val context: Context) {
     }
 
     suspend fun isAppEnabled(packageName: String): Boolean {
-        return context.dataStore.data.map {
-            it[PreferenceKeys.ENABLED_APPS]?.contains(packageName) ?: false
-        }.firstOrNull() ?: false
+        return context.dataStore.data.map { prefs ->
+            val mode = AppsFilterMode.fromIntOrNull(prefs[PreferenceKeys.APPS_FILTER_MODE])
+            val allowList = prefs[PreferenceKeys.ENABLED_APPS] ?: emptySet()
+            val denyList = prefs[PreferenceKeys.DISABLED_APPS] ?: emptySet()
+
+            when (mode) {
+                AppsFilterMode.DENY_LIST -> !denyList.contains(packageName)
+                AppsFilterMode.ALLOW_LIST -> allowList.contains(packageName)
+                null -> {
+                    // Legacy fallback:
+                    // - if allow-list is empty, treat as "allow all" (unconfigured default)
+                    // - otherwise, enforce allow-list membership.
+                    if (allowList.isEmpty()) true else allowList.contains(packageName)
+                }
+            }
+        }.firstOrNull() ?: true
     }
 }

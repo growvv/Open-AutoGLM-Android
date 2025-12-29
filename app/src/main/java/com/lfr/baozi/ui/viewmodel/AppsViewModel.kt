@@ -1,12 +1,13 @@
-package com.example.open_autoglm_android.ui.viewmodel
+package com.lfr.baozi.ui.viewmodel
 
 import android.app.Application
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.open_autoglm_android.data.AppInfo
-import com.example.open_autoglm_android.data.PreferencesRepository
+import com.lfr.baozi.data.AppInfo
+import com.lfr.baozi.data.AppsFilterMode
+import com.lfr.baozi.data.PreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +35,9 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     
     private var allApps: List<AppInfo> = emptyList()
-    private var enabledApps: Set<String> = emptySet()
+    private var appsFilterMode: AppsFilterMode? = null
+    private var allowList: Set<String> = emptySet()
+    private var denyList: Set<String> = emptySet()
     
     init {
         loadInstalledApps()
@@ -47,8 +50,10 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // 先加载已启用的应用列表
-                enabledApps = preferencesRepository.getEnabledAppsSync()
+                // Load persisted app-selection state
+                appsFilterMode = preferencesRepository.getAppsFilterModeSyncOrNull()
+                allowList = preferencesRepository.getEnabledAppsSync()
+                denyList = preferencesRepository.getDisabledAppsSync()
                 
                 val packageManager = getApplication<Application>().packageManager
                 val installedAppsRaw = withContext(Dispatchers.IO) {
@@ -64,22 +69,27 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                                     null
                                 },
                                 isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
-                                isEnabled = enabledApps.contains(packageName)
+                                isEnabled = isPackageEnabled(packageName)
                             )
                         }
                         .sortedBy { it.appName.lowercase() }
                 }
 
-                // 首次使用默认全部授权（开启）
-                val installedApps =
-                    if (enabledApps.isEmpty() && installedAppsRaw.isNotEmpty()) {
-                        enabledApps = installedAppsRaw.map { it.packageName }.toSet()
-                        preferencesRepository.saveEnabledApps(enabledApps)
-                        installedAppsRaw.map { it.copy(isEnabled = true) }
-                    } else {
-                        installedAppsRaw
+                // Migration: if legacy allow-list contains "almost everything", convert to deny-list to avoid huge writes.
+                if (appsFilterMode == null && allowList.isNotEmpty()) {
+                    val installedPkgs = installedAppsRaw.map { it.packageName }.toSet()
+                    val ratio =
+                        if (installedPkgs.isEmpty()) 0.0 else (allowList.intersect(installedPkgs).size.toDouble() / installedPkgs.size)
+                    if (ratio >= 0.95) {
+                        appsFilterMode = AppsFilterMode.DENY_LIST
+                        allowList = emptySet()
+                        denyList = emptySet()
+                        preferencesRepository.saveDisabledApps(emptySet())
                     }
-                allApps = installedApps
+                }
+
+                // Refresh enabled flags after potential migration.
+                allApps = installedAppsRaw.map { it.copy(isEnabled = isPackageEnabled(it.packageName)) }
                 filterApps()
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -112,12 +122,20 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 preferencesRepository.toggleAppEnabled(packageName, enabled)
-                
-                // 更新本地状态
-                if (enabled) {
-                    enabledApps = enabledApps + packageName
-                } else {
-                    enabledApps = enabledApps - packageName
+
+                // Update local selection state (mirror PreferencesRepository defaulting logic)
+                val effectiveMode =
+                    appsFilterMode ?: if (allowList.isNotEmpty()) AppsFilterMode.ALLOW_LIST else AppsFilterMode.DENY_LIST
+                appsFilterMode = effectiveMode
+                when (effectiveMode) {
+                    AppsFilterMode.DENY_LIST -> {
+                        denyList = if (enabled) denyList - packageName else denyList + packageName
+                        allowList = emptySet()
+                    }
+                    AppsFilterMode.ALLOW_LIST -> {
+                        allowList = if (enabled) allowList + packageName else allowList - packageName
+                        denyList = emptySet()
+                    }
                 }
                 
                 // 更新应用列表
@@ -144,14 +162,12 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 // 获取当前显示的应用列表
                 val currentApps = _apps.value
                 
-                // 启用所有当前显示的应用
+                // Enable all apps in current list
                 currentApps.forEach { app ->
-                    if (!app.isEnabled) {
-                        preferencesRepository.toggleAppEnabled(app.packageName, true)
-                        enabledApps = enabledApps + app.packageName
-                    }
+                    if (!app.isEnabled) preferencesRepository.toggleAppEnabled(app.packageName, true)
                 }
-                
+                reloadSelectionState()
+
                 // 更新应用列表
                 allApps = allApps.map { app ->
                     if (currentApps.any { it.packageName == app.packageName }) {
@@ -176,13 +192,11 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 // 获取当前显示的应用列表
                 val currentApps = _apps.value
                 
-                // 禁用所有当前显示的应用
+                // Disable all apps in current list
                 currentApps.forEach { app ->
-                    if (app.isEnabled) {
-                        preferencesRepository.toggleAppEnabled(app.packageName, false)
-                        enabledApps = enabledApps - app.packageName
-                    }
+                    if (app.isEnabled) preferencesRepository.toggleAppEnabled(app.packageName, false)
                 }
+                reloadSelectionState()
                 
                 // 更新应用列表
                 allApps = allApps.map { app ->
@@ -212,12 +226,8 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 currentApps.forEach { app ->
                     val newEnabled = !app.isEnabled
                     preferencesRepository.toggleAppEnabled(app.packageName, newEnabled)
-                    if (newEnabled) {
-                        enabledApps = enabledApps + app.packageName
-                    } else {
-                        enabledApps = enabledApps - app.packageName
-                    }
                 }
+                reloadSelectionState()
                 
                 // 更新应用列表
                 allApps = allApps.map { app ->
@@ -256,5 +266,19 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             .sortedByDescending { it.isEnabled }
+    }
+
+    private fun isPackageEnabled(packageName: String): Boolean {
+        return when (appsFilterMode) {
+            AppsFilterMode.DENY_LIST -> !denyList.contains(packageName)
+            AppsFilterMode.ALLOW_LIST -> allowList.contains(packageName)
+            null -> if (allowList.isEmpty()) true else allowList.contains(packageName)
+        }
+    }
+
+    private suspend fun reloadSelectionState() {
+        appsFilterMode = preferencesRepository.getAppsFilterModeSyncOrNull()
+        allowList = preferencesRepository.getEnabledAppsSync()
+        denyList = preferencesRepository.getDisabledAppsSync()
     }
 }

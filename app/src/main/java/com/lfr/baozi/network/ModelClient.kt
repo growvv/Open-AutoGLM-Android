@@ -1,11 +1,11 @@
-package com.example.open_autoglm_android.network
+package com.lfr.baozi.network
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
-import com.example.open_autoglm_android.R
-import com.example.open_autoglm_android.network.dto.*
+import com.lfr.baozi.R
+import com.lfr.baozi.network.dto.*
 import com.google.gson.JsonObject
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor

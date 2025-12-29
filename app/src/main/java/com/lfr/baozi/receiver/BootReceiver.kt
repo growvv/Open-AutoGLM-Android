@@ -1,12 +1,12 @@
-package com.example.open_autoglm_android.receiver
+package com.lfr.baozi.receiver
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import com.example.open_autoglm_android.service.AccessibilityTileService
-import com.example.open_autoglm_android.service.KeepAliveService
+import com.lfr.baozi.service.AccessibilityTileService
+import com.lfr.baozi.service.KeepAliveService
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

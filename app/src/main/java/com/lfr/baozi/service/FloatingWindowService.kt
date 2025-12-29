@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.service
+package com.lfr.baozi.service
 
 import android.annotation.SuppressLint
 import android.app.Service

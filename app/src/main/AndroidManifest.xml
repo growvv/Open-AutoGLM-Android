@@ -32,9 +32,9 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/app_icon"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/app_icon"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"
@@ -81,8 +81,8 @@
         <service
             android:name=".service.AccessibilityTileService"
             android:exported="true"
-            android:icon="@drawable/ic_launcher_foreground"
-            android:label="AutoGLM"
+            android:icon="@drawable/app_icon"
+            android:label="@string/app_name"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
@@ -91,7 +91,7 @@
 
         <service
             android:name=".service.MyInputMethodService"
-            android:label="AutoGLM Input"
+            android:label="包子输入法"
             android:permission="android.permission.BIND_INPUT_METHOD"
             android:exported="true">
             <intent-filter>

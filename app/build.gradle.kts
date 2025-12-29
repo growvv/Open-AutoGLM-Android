@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.open_autoglm_android"
+    namespace = "com.lfr.baozi"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.open_autoglm_android"
+        applicationId = "com.lfr.baozi"
         minSdk = 24
         targetSdk = 36
         versionCode = 103

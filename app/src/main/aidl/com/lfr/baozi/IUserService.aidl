@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android;
+package com.lfr.baozi;
 
 // Declare any non-default types here with import statements
 

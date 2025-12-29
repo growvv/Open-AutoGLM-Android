@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.ui.screen
+package com.lfr.baozi.ui.screen
 
 import android.util.Log
 import androidx.compose.foundation.layout.*
@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.open_autoglm_android.ui.viewmodel.ChatViewModel
+import com.lfr.baozi.ui.viewmodel.ChatViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 

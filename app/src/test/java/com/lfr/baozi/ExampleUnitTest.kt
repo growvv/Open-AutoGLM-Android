@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android
+package com.lfr.baozi
 
 import org.junit.Test
 

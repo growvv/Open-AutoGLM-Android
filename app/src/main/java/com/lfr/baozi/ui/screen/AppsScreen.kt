@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.ui.screen
+package com.lfr.baozi.ui.screen
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -26,8 +26,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.open_autoglm_android.data.AppInfo
-import com.example.open_autoglm_android.ui.viewmodel.AppsViewModel
+import com.lfr.baozi.data.AppInfo
+import com.lfr.baozi.ui.viewmodel.AppsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

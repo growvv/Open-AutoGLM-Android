@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.data
+package com.lfr.baozi.data
 
 import android.graphics.drawable.Drawable
 

@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.data.database
+package com.lfr.baozi.data.database
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.ui.screen
+package com.lfr.baozi.ui.screen
 
 import android.content.Intent
 import android.net.Uri
@@ -19,13 +19,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -44,7 +44,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,10 +56,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.open_autoglm_android.data.InputMode
-import com.example.open_autoglm_android.ui.viewmodel.SettingsViewModel
-import com.example.open_autoglm_android.util.ActivityLaunchUtils
-import com.example.open_autoglm_android.util.AuthHelper
+import com.lfr.baozi.R
+import com.lfr.baozi.data.InputMode
+import com.lfr.baozi.ui.viewmodel.SettingsViewModel
+import com.lfr.baozi.util.ActivityLaunchUtils
+import com.lfr.baozi.util.AuthHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,7 +69,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel(),
     onNavigateToAdvancedAuth: () -> Unit,
     onNavigateToAppsSettings: () -> Unit,
-    onNavigateToModelSettings: () -> Unit
+    onNavigateToModelSettings: () -> Unit,
+    onNavigateToInputSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -177,17 +181,9 @@ fun SettingsScreen(
                                             !uiState.isImeEnabled -> "输入法未启用"
                                             !uiState.isImeSelected -> "输入法未选中"
                                             else -> "输入法已启用"
-                                        }
-                                },
-                            onClick = {
-                                val next =
-                                    when (uiState.inputMode) {
-                                        InputMode.SET_TEXT -> InputMode.PASTE
-                                        InputMode.PASTE -> InputMode.IME
-                                        InputMode.IME -> InputMode.SET_TEXT
                                     }
-                                viewModel.setInputMode(next)
-                            }
+                                },
+                            onClick = onNavigateToInputSettings
                         )
                     )
             )
@@ -220,13 +216,13 @@ private fun ProfileCard() {
                     Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
+                Image(
+                    painter = painterResource(R.drawable.avator),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))

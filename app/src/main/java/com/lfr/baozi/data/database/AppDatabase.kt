@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.data.database
+package com.lfr.baozi.data.database
 
 import android.content.Context
 import androidx.room.Database

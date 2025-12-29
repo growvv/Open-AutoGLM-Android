@@ -1,7 +1,7 @@
-package com.example.open_autoglm_android.network
+package com.lfr.baozi.network
 
-import com.example.open_autoglm_android.network.dto.ChatRequest
-import com.example.open_autoglm_android.network.dto.ChatResponse
+import com.lfr.baozi.network.dto.ChatRequest
+import com.lfr.baozi.network.dto.ChatResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST

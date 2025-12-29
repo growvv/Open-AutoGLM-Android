@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android
+package com.lfr.baozi
 
 import android.os.RemoteException
 import kotlin.jvm.Throws

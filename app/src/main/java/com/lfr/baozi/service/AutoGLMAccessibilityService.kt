@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.service
+package com.lfr.baozi.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
@@ -14,8 +14,8 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.example.open_autoglm_android.data.InputMode
-import com.example.open_autoglm_android.data.PreferencesRepository
+import com.lfr.baozi.data.InputMode
+import com.lfr.baozi.data.PreferencesRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

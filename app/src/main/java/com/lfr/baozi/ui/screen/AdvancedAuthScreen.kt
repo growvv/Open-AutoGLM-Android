@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.ui.screen
+package com.lfr.baozi.ui.screen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,8 +18,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.open_autoglm_android.ui.viewmodel.AdvancedAuthViewModel
-import com.example.open_autoglm_android.ui.viewmodel.AdvancedAuthUiState
+import com.lfr.baozi.ui.viewmodel.AdvancedAuthViewModel
+import com.lfr.baozi.ui.viewmodel.AdvancedAuthUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -266,7 +266,7 @@ fun AdvancedAuthScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = com.example.open_autoglm_android.util.AuthHelper.getAdbGrantCommand(context),
+                                text = com.lfr.baozi.util.AuthHelper.getAdbGrantCommand(context),
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.weight(1f)
                             )

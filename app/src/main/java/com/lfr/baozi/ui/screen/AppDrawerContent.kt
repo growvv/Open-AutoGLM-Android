@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.ui.screen
+package com.lfr.baozi.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,9 +18,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
@@ -41,18 +40,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.open_autoglm_android.data.database.Conversation
+import com.lfr.baozi.data.database.Conversation
+import com.lfr.baozi.R
 
 @Composable
 fun AppDrawerContent(
     conversations: List<Conversation>,
     currentConversationId: String?,
     onNavigateSettings: () -> Unit,
-    onNewTask: () -> Unit,
     onTaskSelected: (String, String) -> Unit,
     onDeleteTask: (String) -> Unit
 ) {
@@ -62,10 +63,7 @@ fun AppDrawerContent(
         Column(modifier = Modifier.fillMaxHeight()) {
             DrawerTopBar(
                 query = query,
-                onQueryChange = { query = it },
-                onNewTask = {
-                    onNewTask()
-                }
+                onQueryChange = { query = it }
             )
 
             Row(
@@ -122,8 +120,7 @@ fun AppDrawerContent(
 @Composable
 private fun DrawerTopBar(
     query: String,
-    onQueryChange: (String) -> Unit,
-    onNewTask: () -> Unit
+    onQueryChange: (String) -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
@@ -132,36 +129,26 @@ private fun DrawerTopBar(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
-            modifier = Modifier.weight(1f).heightIn(min = 56.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
             singleLine = true,
             placeholder = { Text("搜索…", style = MaterialTheme.typography.bodyMedium) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            },
             textStyle = MaterialTheme.typography.bodyMedium,
             colors =
                 OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent
                 ),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(16.dp)
         )
-        Spacer(modifier = Modifier.width(10.dp))
-        IconButton(
-            onClick = onNewTask,
-            modifier = Modifier.size(44.dp).testTag("drawer_new_task")
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Default.Edit, contentDescription = "新建任务", tint = Color.White)
-            }
-        }
     }
 }
 
@@ -176,19 +163,12 @@ private fun DrawerBottomBar(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(42.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        Image(
+            painter = painterResource(R.drawable.avator),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(42.dp).clip(CircleShape)
+        )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(

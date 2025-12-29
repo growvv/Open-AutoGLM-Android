@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.ui.theme
+package com.lfr.baozi.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

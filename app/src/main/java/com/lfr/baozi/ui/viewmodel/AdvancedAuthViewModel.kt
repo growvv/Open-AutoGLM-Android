@@ -1,9 +1,9 @@
-package com.example.open_autoglm_android.ui.viewmodel
+package com.lfr.baozi.ui.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.open_autoglm_android.util.AuthHelper
+import com.lfr.baozi.util.AuthHelper
 import rikka.shizuku.Shizuku
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.service
+package com.lfr.baozi.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -10,8 +10,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.example.open_autoglm_android.MainActivity
-import com.example.open_autoglm_android.R
+import com.lfr.baozi.MainActivity
+import com.lfr.baozi.R
 
 class KeepAliveService : Service() {
 
@@ -71,11 +71,10 @@ class KeepAliveService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AutoGLM 运行中")
             .setContentText("无障碍服务已启用")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.app_icon)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
 }
-

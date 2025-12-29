@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.ui.viewmodel
+package com.lfr.baozi.ui.viewmodel
 
 import android.app.Application
 import android.content.pm.PackageManager
@@ -6,21 +6,21 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.open_autoglm_android.data.ConversationRepository
-import com.example.open_autoglm_android.data.PreferencesRepository
-import com.example.open_autoglm_android.data.database.Conversation
-import com.example.open_autoglm_android.data.database.ConversationStatus
-import com.example.open_autoglm_android.data.database.SavedChatMessage
-import com.example.open_autoglm_android.domain.ActionExecutor
-import com.example.open_autoglm_android.domain.AppRegistry
-import com.example.open_autoglm_android.domain.ExecuteResult
-import com.example.open_autoglm_android.network.ModelClient
-import com.example.open_autoglm_android.network.dto.ChatMessage as NetworkChatMessage
-import com.example.open_autoglm_android.service.AutoGLMAccessibilityService
-import com.example.open_autoglm_android.service.FloatingWindowService
-import com.example.open_autoglm_android.util.BitmapUtils
-import com.example.open_autoglm_android.util.DeviceUtils
-import com.example.open_autoglm_android.util.AccessibilityServiceHelper
+import com.lfr.baozi.data.ConversationRepository
+import com.lfr.baozi.data.PreferencesRepository
+import com.lfr.baozi.data.database.Conversation
+import com.lfr.baozi.data.database.ConversationStatus
+import com.lfr.baozi.data.database.SavedChatMessage
+import com.lfr.baozi.domain.ActionExecutor
+import com.lfr.baozi.domain.AppRegistry
+import com.lfr.baozi.domain.ExecuteResult
+import com.lfr.baozi.network.ModelClient
+import com.lfr.baozi.network.dto.ChatMessage as NetworkChatMessage
+import com.lfr.baozi.service.AutoGLMAccessibilityService
+import com.lfr.baozi.service.FloatingWindowService
+import com.lfr.baozi.util.BitmapUtils
+import com.lfr.baozi.util.DeviceUtils
+import com.lfr.baozi.util.AccessibilityServiceHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -147,6 +147,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val initialConversations = conversationRepository.conversations.first()
             if (initialConversations.isEmpty()) {
                 conversationRepository.createConversation()
+            }
+        }
+    }
+
+    fun refreshAccessibilityState() {
+        val enabledInSettings =
+            AccessibilityServiceHelper.isAccessibilityServiceEnabled(getApplication())
+        if (enabledInSettings) {
+            val current = _uiState.value
+            if (current.showAccessibilityEnableDialog || current.error?.contains("无障碍") == true) {
+                _uiState.value =
+                    current.copy(
+                        showAccessibilityEnableDialog = false,
+                        error = null
+                    )
             }
         }
     }
@@ -814,7 +829,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         NetworkChatMessage(
                             role = "user",
                             content = listOf(
-                                com.example.open_autoglm_android.network.dto.ContentItem(
+                                com.lfr.baozi.network.dto.ContentItem(
                                     type = "text",
                                     text = feedbackText
                                 )

@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android
+package com.lfr.baozi
 
 import android.content.ComponentName
 import android.content.ServiceConnection
@@ -11,8 +11,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -29,21 +32,22 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.open_autoglm_android.navigation.Screen
-import com.example.open_autoglm_android.ui.screen.AdvancedAuthScreen
-import com.example.open_autoglm_android.ui.screen.AppDrawerContent
-import com.example.open_autoglm_android.ui.screen.AppsScreen
-import com.example.open_autoglm_android.ui.screen.EdgeSwipeToHome
-import com.example.open_autoglm_android.ui.screen.MainScreen
-import com.example.open_autoglm_android.ui.screen.ModelSettingsScreen
-import com.example.open_autoglm_android.ui.screen.SettingsScreen
-import com.example.open_autoglm_android.ui.theme.OpenAutoGLMAndroidTheme
-import com.example.open_autoglm_android.ui.viewmodel.AppsViewModel
-import com.example.open_autoglm_android.ui.viewmodel.ChatViewModel
-import com.example.open_autoglm_android.ui.viewmodel.SettingsViewModel
-import com.example.open_autoglm_android.util.AccessibilityServiceHelper
-import com.example.open_autoglm_android.util.AuthHelper
-import com.example.open_autoglm_android.util.AuthHelper.hasWriteSecureSettingsPermission
+import com.lfr.baozi.navigation.Screen
+import com.lfr.baozi.ui.screen.AdvancedAuthScreen
+import com.lfr.baozi.ui.screen.AppDrawerContent
+import com.lfr.baozi.ui.screen.AppsScreen
+import com.lfr.baozi.ui.screen.EdgeSwipeToHome
+import com.lfr.baozi.ui.screen.InputSettingsScreen
+import com.lfr.baozi.ui.screen.MainScreen
+import com.lfr.baozi.ui.screen.ModelSettingsScreen
+import com.lfr.baozi.ui.screen.SettingsScreen
+import com.lfr.baozi.ui.theme.OpenAutoGLMAndroidTheme
+import com.lfr.baozi.ui.viewmodel.AppsViewModel
+import com.lfr.baozi.ui.viewmodel.ChatViewModel
+import com.lfr.baozi.ui.viewmodel.SettingsViewModel
+import com.lfr.baozi.util.AccessibilityServiceHelper
+import com.lfr.baozi.util.AuthHelper
+import com.lfr.baozi.util.AuthHelper.hasWriteSecureSettingsPermission
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -54,7 +58,6 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
     Shizuku.OnRequestPermissionResultListener {
 
     companion object {
-        private const val APPLICATION_ID = "com.example.open_autoglm_android"
         private const val TAG = "MainActivity"
         private const val PERMISSION_CODE = 10001
     }
@@ -66,12 +69,13 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
     private var accessibilityRefreshJob: Job? = null
 
     private var userService: IUserService? = null
-    private val userServiceArgs =
-        Shizuku.UserServiceArgs(ComponentName(APPLICATION_ID, UserService::class.java.name))
+    private val userServiceArgs by lazy {
+        Shizuku.UserServiceArgs(ComponentName(packageName, UserService::class.java.name))
             .daemon(false)
             .processNameSuffix("adb_shell")
             .debuggable(false)
             .version(1)
+    }
 
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -98,30 +102,16 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                             currentConversationId = chatUiState.currentConversationId,
                             onNavigateSettings = {
                                 scope.launch {
-                                    drawerState.snapTo(DrawerValue.Closed)
+                                    drawerState.close()
                                     navController.navigate(Screen.Settings.name) {
-                                        launchSingleTop = true
-                                    }
-                                }
-                            },
-                            onNewTask = {
-                                scope.launch {
-                                    drawerState.snapTo(DrawerValue.Closed)
-                                    chatViewModel.createNewConversation()
-                                    navController.navigate(Screen.Main.name) {
-                                        popUpTo(Screen.Main.name) { inclusive = false }
                                         launchSingleTop = true
                                     }
                                 }
                             },
                             onTaskSelected = { id, title ->
                                 scope.launch {
-                                    drawerState.snapTo(DrawerValue.Closed)
+                                    drawerState.close()
                                     chatViewModel.switchConversation(id, title)
-                                    navController.navigate(Screen.Main.name) {
-                                        popUpTo(Screen.Main.name) { inclusive = false }
-                                        launchSingleTop = true
-                                    }
                                 }
                             },
                             onDeleteTask = { id -> chatViewModel.deleteConversation(id) }
@@ -138,7 +128,11 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                         if (currentRoute == Screen.Main.name) {
                                             IconButton(
                                                 modifier = Modifier.testTag("drawer_toggle"),
-                                                onClick = { scope.launch { drawerState.snapTo(DrawerValue.Open) } }
+                                                onClick = {
+                                                    scope.launch {
+                                                        drawerState.open()
+                                                    }
+                                                }
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Menu,
@@ -163,7 +157,9 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                             when (currentRoute) {
                                                 Screen.Settings.name -> "设置"
                                                 else -> chatUiState.currentConversationTitle ?: "AutoGLM"
-                                            }
+                                            },
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
                                 )
@@ -173,11 +169,47 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                         NavHost(
                             navController = navController,
                             startDestination = Screen.Main.name,
-                            // 禁用 navigation-compose 默认的淡入淡出过渡，减少“卡顿/延迟”的主观感受
-                            enterTransition = { EnterTransition.None },
-                            exitTransition = { ExitTransition.None },
-                            popEnterTransition = { EnterTransition.None },
-                            popExitTransition = { ExitTransition.None },
+                            // 复刻“右侧推入设置、左侧推回首页”的效果（无淡入淡出）
+                            enterTransition = {
+                                val targetRoute = targetState.destination.route
+                                if (targetRoute == Screen.Main.name) {
+                                    slideInHorizontally(
+                                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                        initialOffsetX = { -it / 3 }
+                                    )
+                                } else {
+                                    slideInHorizontally(
+                                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                        initialOffsetX = { it }
+                                    )
+                                }
+                            },
+                            exitTransition = {
+                                val targetRoute = targetState.destination.route
+                                if (targetRoute == Screen.Main.name) {
+                                    slideOutHorizontally(
+                                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                        targetOffsetX = { it }
+                                    )
+                                } else {
+                                    slideOutHorizontally(
+                                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                        targetOffsetX = { -it / 3 }
+                                    )
+                                }
+                            },
+                            popEnterTransition = {
+                                slideInHorizontally(
+                                    animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                    initialOffsetX = { -it / 3 }
+                                )
+                            },
+                            popExitTransition = {
+                                slideOutHorizontally(
+                                    animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                    targetOffsetX = { it }
+                                )
+                            },
                             modifier =
                                 Modifier
                                     .padding(innerPadding)
@@ -210,6 +242,9 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                         },
                                         onNavigateToModelSettings = {
                                             navController.navigate(Screen.ModelSettings.name)
+                                        },
+                                        onNavigateToInputSettings = {
+                                            navController.navigate(Screen.InputSettings.name)
                                         }
                                     )
                                 }
@@ -234,6 +269,19 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                     onSwipe = { navController.popBackStack(Screen.Main.name, false) }
                                 ) { m ->
                                     ModelSettingsScreen(
+                                        modifier = m,
+                                        viewModel = settingsViewModel,
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                }
+                            }
+
+                            composable(Screen.InputSettings.name) {
+                                EdgeSwipeToHome(
+                                    enabled = true,
+                                    onSwipe = { navController.popBackStack(Screen.Main.name, false) }
+                                ) { m ->
+                                    InputSettingsScreen(
                                         modifier = m,
                                         viewModel = settingsViewModel,
                                         onBack = { navController.popBackStack() }
@@ -272,10 +320,13 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
         accessibilityRefreshJob =
             lifecycleScope.launch {
                 settingsViewModel.checkAccessibilityService()
+                chatViewModel.refreshAccessibilityState()
                 delay(300)
                 settingsViewModel.checkAccessibilityService()
+                chatViewModel.refreshAccessibilityState()
                 delay(1200)
                 settingsViewModel.checkAccessibilityService()
+                chatViewModel.refreshAccessibilityState()
             }
     }
 

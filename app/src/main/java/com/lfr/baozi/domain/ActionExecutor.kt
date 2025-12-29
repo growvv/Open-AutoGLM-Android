@@ -1,14 +1,14 @@
-package com.example.open_autoglm_android.domain
+package com.lfr.baozi.domain
 
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
-import com.example.open_autoglm_android.data.InputMode
-import com.example.open_autoglm_android.service.AutoGLMAccessibilityService
-import com.example.open_autoglm_android.service.FloatingWindowService
-import com.example.open_autoglm_android.service.MyInputMethodService
+import com.lfr.baozi.data.InputMode
+import com.lfr.baozi.service.AutoGLMAccessibilityService
+import com.lfr.baozi.service.FloatingWindowService
+import com.lfr.baozi.service.MyInputMethodService
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser

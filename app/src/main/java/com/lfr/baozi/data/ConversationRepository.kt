@@ -1,11 +1,11 @@
-package com.example.open_autoglm_android.data
+package com.lfr.baozi.data
 
 import android.content.Context
-import com.example.open_autoglm_android.data.database.AppDatabase
-import com.example.open_autoglm_android.data.database.Conversation
-import com.example.open_autoglm_android.data.database.ConversationStatus
-import com.example.open_autoglm_android.data.database.ConversationWithMessages
-import com.example.open_autoglm_android.data.database.SavedChatMessage
+import com.lfr.baozi.data.database.AppDatabase
+import com.lfr.baozi.data.database.Conversation
+import com.lfr.baozi.data.database.ConversationStatus
+import com.lfr.baozi.data.database.ConversationWithMessages
+import com.lfr.baozi.data.database.SavedChatMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

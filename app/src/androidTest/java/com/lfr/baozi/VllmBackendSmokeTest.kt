@@ -1,9 +1,9 @@
-package com.example.open_autoglm_android
+package com.lfr.baozi
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.open_autoglm_android.network.ModelClient
-import com.example.open_autoglm_android.network.dto.ChatMessage
-import com.example.open_autoglm_android.network.dto.ContentItem
+import com.lfr.baozi.network.ModelClient
+import com.lfr.baozi.network.dto.ChatMessage
+import com.lfr.baozi.network.dto.ContentItem
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request

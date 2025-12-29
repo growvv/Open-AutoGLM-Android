@@ -1,17 +1,17 @@
-package com.example.open_autoglm_android.ui.viewmodel
+package com.lfr.baozi.ui.viewmodel
 
 import android.app.Application
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.open_autoglm_android.data.InputMode
-import com.example.open_autoglm_android.data.PreferencesRepository
-import com.example.open_autoglm_android.data.PreferencesRepository.Companion.DEFAULT_BASE_URL
-import com.example.open_autoglm_android.data.PreferencesRepository.Companion.DEFAULT_MAX_STEPS
-import com.example.open_autoglm_android.data.PreferencesRepository.Companion.DEFAULT_MODEL_NAME
-import com.example.open_autoglm_android.service.FloatingWindowService
-import com.example.open_autoglm_android.util.AccessibilityServiceHelper
+import com.lfr.baozi.data.InputMode
+import com.lfr.baozi.data.PreferencesRepository
+import com.lfr.baozi.data.PreferencesRepository.Companion.DEFAULT_BASE_URL
+import com.lfr.baozi.data.PreferencesRepository.Companion.DEFAULT_MAX_STEPS
+import com.lfr.baozi.data.PreferencesRepository.Companion.DEFAULT_MODEL_NAME
+import com.lfr.baozi.service.FloatingWindowService
+import com.lfr.baozi.util.AccessibilityServiceHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

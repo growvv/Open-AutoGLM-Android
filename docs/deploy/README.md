@@ -1,6 +1,6 @@
 # Deploy / Smoke Test Notes
 
-This folder documents how to build, install, and smoke-test **Open-AutoGLM-Android**, plus the recent configuration/code changes and issues encountered during CLI-based deployment.
+This folder documents how to build, install, and smoke-test **包子** (`com.lfr.baozi`), plus the recent configuration/code changes and issues encountered during CLI-based deployment.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ This folder documents how to build, install, and smoke-test **Open-AutoGLM-Andro
 
 Optional:
 - To use the “silent keep-alive” toggle (writing secure settings), grant:
-  - `adb shell pm grant com.example.open_autoglm_android android.permission.WRITE_SECURE_SETTINGS`
+  - `adb shell pm grant com.lfr.baozi android.permission.WRITE_SECURE_SETTINGS`
 
 ## Backend / Settings (vLLM OpenAI-compatible)
 
@@ -52,13 +52,13 @@ adb -s "$ANDROID_SERIAL" install -r -t app/build/outputs/apk/debug/app-debug.apk
 Optional: clear app data (fresh start):
 
 ```bash
-adb -s "$ANDROID_SERIAL" shell pm clear com.example.open_autoglm_android
+adb -s "$ANDROID_SERIAL" shell pm clear com.lfr.baozi
 ```
 
 Launch:
 
 ```bash
-adb -s "$ANDROID_SERIAL" shell am start -n com.example.open_autoglm_android/.MainActivity
+adb -s "$ANDROID_SERIAL" shell am start -n com.lfr.baozi/.MainActivity
 ```
 
 ## Smoke Tests (on device)
@@ -125,4 +125,3 @@ Fix:
 ### UI test navigation flakiness
 - Symptom: tests couldn’t reliably find Settings tab by localized content description
 - Resolution: add stable Compose `testTag`s to navigation + settings fields and use them in tests
-

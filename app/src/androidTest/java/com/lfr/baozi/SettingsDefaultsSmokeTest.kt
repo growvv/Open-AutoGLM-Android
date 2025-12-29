@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android
+package com.lfr.baozi
 
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule

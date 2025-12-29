@@ -1,4 +1,4 @@
-package com.example.open_autoglm_android.network.dto
+package com.lfr.baozi.network.dto
 
 import com.google.gson.annotations.SerializedName
 
