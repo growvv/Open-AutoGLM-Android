@@ -98,7 +98,7 @@ class PreferencesRepository(private val context: Context) {
     }
 
     val inputMode: Flow<InputMode> = context.dataStore.data.map { preferences ->
-        InputMode.fromInt(preferences[PreferenceKeys.INPUT_MODE] ?: 0)
+        InputMode.fromInt(preferences[PreferenceKeys.INPUT_MODE] ?: InputMode.PASTE.value)
     }
 
     val imageCompressionEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -208,7 +208,7 @@ class PreferencesRepository(private val context: Context) {
     }
 
     suspend fun saveMaxSteps(maxSteps: Int) {
-        val clamped = maxSteps.coerceIn(1, 500)
+        val clamped = maxSteps.coerceIn(1, 50)
         context.dataStore.edit { preferences ->
             preferences[PreferenceKeys.MAX_STEPS] = clamped
         }

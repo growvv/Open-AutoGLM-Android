@@ -258,6 +258,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                     SettingsScreen(
                                         modifier = m,
                                         viewModel = settingsViewModel,
+                                        accountViewModel = accountViewModel,
                                         onNavigateToAdvancedAuth = {
                                             navController.navigate(Screen.AdvancedAuth.name)
                                         },

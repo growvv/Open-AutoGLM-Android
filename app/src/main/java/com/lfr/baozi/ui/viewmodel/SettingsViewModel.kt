@@ -26,7 +26,7 @@ data class SettingsUiState(
     val isAccessibilityServiceRunning: Boolean = false,
     val floatingWindowEnabled: Boolean = false,
     val hasOverlayPermission: Boolean = false,
-    val inputMode: InputMode = InputMode.SET_TEXT,
+    val inputMode: InputMode = InputMode.PASTE,
     val isImeEnabled: Boolean = false,
     val isImeSelected: Boolean = false,
     val imageCompressionEnabled: Boolean = false,
@@ -184,7 +184,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, saveSuccess = false)
             try {
                 val parsedMaxSteps = _uiState.value.maxStepsInput.trim().toIntOrNull() ?: DEFAULT_MAX_STEPS
-                val clampedMaxSteps = parsedMaxSteps.coerceIn(1, 500)
+                val clampedMaxSteps = parsedMaxSteps.coerceIn(1, 50)
                 preferencesRepository.saveModelName(_uiState.value.modelName)
                 preferencesRepository.saveMaxSteps(clampedMaxSteps)
                 _uiState.value = _uiState.value.copy(isLoading = false, saveSuccess = true)

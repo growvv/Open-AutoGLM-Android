@@ -113,4 +113,16 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
+
+    fun logout() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, error = null)
+            try {
+                preferencesRepository.setLoggedIn(false)
+                _uiState.value = _uiState.value.copy(isSaving = false)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isSaving = false, error = "退出登录失败：${e.message}")
+            }
+        }
+    }
 }

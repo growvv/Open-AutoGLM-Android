@@ -146,7 +146,7 @@ fun ModelSettingsScreen(
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(text = "最大步数", style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                text = "范围 1~500，建议 20~80",
+                                text = "范围 1~50，建议 20~30",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,

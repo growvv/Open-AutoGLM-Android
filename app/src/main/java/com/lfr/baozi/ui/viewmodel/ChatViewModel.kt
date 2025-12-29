@@ -526,7 +526,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val executor = actionExecutor ?: return
         
         var stepCount = 0
-        val maxSteps = preferencesRepository.getMaxStepsSync().coerceIn(1, 500)
+        val maxSteps = preferencesRepository.getMaxStepsSync().coerceIn(1, 50)
         
         var retryCount = 0
 

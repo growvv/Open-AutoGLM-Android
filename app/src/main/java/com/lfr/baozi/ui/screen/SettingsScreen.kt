@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -34,6 +37,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lfr.baozi.R
 import com.lfr.baozi.data.InputMode
+import com.lfr.baozi.ui.viewmodel.AccountViewModel
 import com.lfr.baozi.ui.viewmodel.SettingsViewModel
 import com.lfr.baozi.util.ActivityLaunchUtils
 import com.lfr.baozi.util.AuthHelper
@@ -65,6 +70,7 @@ import com.lfr.baozi.util.AuthHelper
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(),
+    accountViewModel: AccountViewModel,
     onNavigateToAdvancedAuth: () -> Unit,
     onNavigateToAppsSettings: () -> Unit,
     onNavigateToModelSettings: () -> Unit,
@@ -74,6 +80,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val hasWriteSecureSettings = remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val showLogoutDialog = remember { mutableStateOf(false) }
 
     DisposableEffect(Unit) {
         val lifecycleObserver = LifecycleEventObserver { _, event ->
@@ -185,13 +192,90 @@ fun SettingsScreen(
             )
         }
 
-        item(key = "tips") {
-            Text(
-                text = "提示：首次使用请先开启无障碍服务。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp)
+        item(key = "account") {
+            SettingsGroupCard(
+                title = "账号",
+                items =
+                    listOf(
+                        SettingsItem(
+                            icon = Icons.AutoMirrored.Filled.Logout,
+                            iconBg = Color(0xFFE53935),
+                            title = "退出登录",
+                            subtitle = null,
+                            tag = "settings_item_logout",
+                            onClick = { showLogoutDialog.value = true }
+                        )
+                    )
             )
+        }
+    }
+
+    if (showLogoutDialog.value) {
+        Dialog(onDismissRequest = { showLogoutDialog.value = false }) {
+            Card(
+                modifier = Modifier.fillMaxWidth(0.9f),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
+                    Text(
+                        text = "确认退出登录？",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "退出登录不会丢失任何数据，你仍可以登录此账号。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 18.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Row(modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clickable { showLogoutDialog.value = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "取消",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Box(
+                            modifier =
+                                Modifier
+                                    .width(1.dp)
+                                    .fillMaxHeight()
+                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                        )
+                        Box(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clickable {
+                                        showLogoutDialog.value = false
+                                        accountViewModel.logout()
+                                    },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "退出登录",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color(0xFFE53935)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
