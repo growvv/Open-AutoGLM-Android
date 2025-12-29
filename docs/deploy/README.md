@@ -17,7 +17,7 @@ Optional:
 Current default settings in the app:
 - **Base URL**: `http://47.99.92.117:28100/v1`
 - **API Key**: optional (leave empty to send no `Authorization` header)
-- **Model Name**: `autoglm-phone-9b`
+- **Max Steps**: default `20`
 
 Notes:
 - `http://47.99.92.117:28100/v1/models` is expected to be accessible without an API key in this environment.
@@ -32,7 +32,7 @@ Notes:
 
 ## Settings UI (where to change things)
 
-- **Model / Max Steps**: `设置` → `模型与执行`
+- **Max Steps / Backend**: `设置` → `模型与执行`
 - **Custom backend overrides (optional)**: `设置` → `模型与执行` → `自定义服务端`
   - Leave fields blank to use built-in defaults
   - Use “恢复默认” to clear overrides
@@ -90,12 +90,12 @@ Test reports:
 What’s covered:
 - vLLM `/v1/models` reachable without API key
 - `ModelClient` omits `Authorization` header when API key is blank
-- Model settings shows default Base URL / Model Name, and backend override page defaults are blank
+- Model settings shows Max Steps, and backend override page defaults are blank
 
 ## Recent Code/Config Changes (summary)
 
 ### Backend defaults + API key optional
-- Default Base URL and Model Name updated in `PreferencesRepository`
+- Default Base URL updated in `PreferencesRepository`
 - `ModelClient` only sets `Authorization: Bearer ...` when API key is non-blank (and not `"EMPTY"`)
 - Settings UI defaults updated accordingly
 
@@ -119,7 +119,7 @@ Fix:
 ### Max Steps setting
 - Added `Max Steps (1~500)` in Settings
 - Persisted via DataStore
-- Task loop uses the configured value instead of a hard-coded 50
+- Default changed to `20` (still configurable), and the task loop uses the configured value instead of a hard-coded 50
 
 ### Conversation status indicator
 - Added per-conversation status: `未开始 / 进行中 / 完成 / 中止 / 结束`

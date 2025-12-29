@@ -45,8 +45,7 @@ On first launch, the app shows a login page. An **invite code** is required (cur
 1. Open the app, open the drawer, and go to the "Settings" page
 2. If your backend requires auth (e.g. Zhipu AI https://open.bigmodel.cn/), apply for an API Key first
 3. In “Model & Execution”, configure:
-   - **Model Name**: default is `autoglm-phone-9b`
-   - **Max Steps**: maximum steps (1~500)
+   - **Max Steps**: maximum steps (1~500, default 20)
 4. Optional: to override backend settings, go to “Model & Execution” → “自定义服务端 (Custom Backend)”
    - **Base URL**: leave blank to use default `http://47.99.92.117:28100/v1`
    - **API Key**: optional (blank means no `Authorization` header)
@@ -57,7 +56,6 @@ On first launch, the app shows a login page. An **invite code** is required (cur
 If your backend is a vLLM OpenAI-compatible endpoint (e.g. `http://47.99.92.117:28100/`), set:
 - **Base URL**: `http://47.99.92.117:28100/v1` (must include `/v1`; blank uses default)
 - **API Key**: optional (required only if your backend enforces auth)
-- **Model Name**: e.g. `autoglm-phone-9b` (query `/v1/models` to see available models)
 
 ### 4. Enable Accessibility Service
 
