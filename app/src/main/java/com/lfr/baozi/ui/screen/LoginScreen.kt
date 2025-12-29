@@ -21,6 +21,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,29 +67,26 @@ fun LoginScreen(
             modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(18.dp))
         Text(
             text = "欢迎使用包子",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
-        Text(
-            text = "登录后即可开始新任务",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
-        Spacer(modifier = Modifier.height(10.dp))
-        Box(
+        Spacer(modifier = Modifier.height(6.dp))
+        Surface(
             modifier =
                 Modifier
-                    .size(92.dp)
+                    .size(148.dp)
                     .clip(CircleShape)
-                    .clickable { pickAvatarLauncher.launch(arrayOf("image/*")) }
+                    .clickable { pickAvatarLauncher.launch(arrayOf("image/*")) },
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shadowElevation = 6.dp
         ) {
             AsyncImage(
                 model = uiState.avatarUri.ifBlank { R.drawable.avator },
@@ -100,27 +99,54 @@ fun LoginScreen(
             Text("更换头像")
         }
 
-        OutlinedTextField(
-            value = uiState.nickname,
-            onValueChange = viewModel::updateNickname,
-            label = { Text("昵称") },
-            modifier = Modifier.fillMaxWidth().testTag("login_nickname"),
-            singleLine = true
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.nickname,
+                    onValueChange = viewModel::updateNickname,
+                    label = { Text("昵称") },
+                    modifier = Modifier.fillMaxWidth().testTag("login_nickname"),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                        )
+                )
 
-        OutlinedTextField(
-            value = uiState.inviteCode,
-            onValueChange = viewModel::updateInviteCode,
-            label = { Text("邀请码") },
-            placeholder = { Text("请输入邀请码") },
-            modifier = Modifier.fillMaxWidth().testTag("login_invite"),
-            singleLine = true
-        )
+                OutlinedTextField(
+                    value = uiState.inviteCode,
+                    onValueChange = viewModel::updateInviteCode,
+                    label = { Text("邀请码") },
+                    placeholder = { Text("请输入邀请码") },
+                    modifier = Modifier.fillMaxWidth().testTag("login_invite"),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                        )
+                )
+            }
+        }
 
         Button(
             onClick = viewModel::login,
             enabled = !uiState.isSaving,
-            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("login_button")
+            modifier = Modifier.fillMaxWidth().height(50.dp).testTag("login_button")
         ) {
             Text("登录")
         }
@@ -142,10 +168,5 @@ fun LoginScreen(
         }
 
         Spacer(modifier = Modifier.weight(1f))
-        Text(
-            text = "提示：邀请码模块后续接入完整校验。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
