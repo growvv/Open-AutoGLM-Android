@@ -26,6 +26,7 @@ class SettingsDefaultsSmokeTest {
             prefs.setLoggedIn(false)
             prefs.saveInviteCode("")
             prefs.clearCustomBackendOverrides()
+            prefs.saveMaxSteps(PreferencesRepository.DEFAULT_MAX_STEPS)
         }
         composeRule.waitForIdle()
 
@@ -41,7 +42,7 @@ class SettingsDefaultsSmokeTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings_item_model").performClick()
 
-        composeRule.onNodeWithTag("settings_modelName").assertTextContains("autoglm-phone-9b")
+        composeRule.onNodeWithTag("settings_maxSteps").assertTextContains("20")
 
         composeRule.onNodeWithTag("settings_item_backend").performClick()
         composeRule.waitForIdle()
