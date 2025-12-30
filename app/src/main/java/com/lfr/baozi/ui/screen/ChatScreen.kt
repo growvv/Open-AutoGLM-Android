@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
@@ -105,6 +106,10 @@ fun ChatScreen(
     val showRecommendations = !uiState.isLoading && uiState.taskStatus != ConversationStatus.RUNNING
 
     var previousStatus by remember { mutableStateOf<ConversationStatus?>(null) }
+    var recommendationsNonce by
+        remember(uiState.currentConversationId, uiState.taskEndedAt, uiState.taskStatus) {
+            mutableIntStateOf(0)
+        }
 
     LaunchedEffect(uiState.currentConversationId) {
         previousStatus = null
@@ -233,7 +238,8 @@ fun ChatScreen(
                     item(key = "recommendations") {
                         val seed =
                             (uiState.taskEndedAt ?: uiState.taskStartedAt ?: 0L) xor
-                                (uiState.currentConversationId?.hashCode()?.toLong() ?: 0L)
+                                (uiState.currentConversationId?.hashCode()?.toLong() ?: 0L) xor
+                                recommendationsNonce.toLong()
                         RecommendationsSection(
                             seed = seed,
                             onPick = { text ->
@@ -241,7 +247,8 @@ fun ChatScreen(
                                     val started = viewModel.sendMessage(text)
                                     if (started) userInput = ""
                                 }
-                            }
+                            },
+                            onRefresh = { recommendationsNonce++ }
                         )
                     }
                 }
@@ -694,7 +701,8 @@ private fun TaskResultCard(
 @Composable
 private fun RecommendationsSection(
     seed: Long,
-    onPick: (String) -> Unit
+    onPick: (String) -> Unit,
+    onRefresh: () -> Unit
 ) {
     val tasks =
         remember {
@@ -817,12 +825,23 @@ private fun RecommendationsSection(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = "为你推荐",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 2.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "为你推荐",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 2.dp)
+            )
+            TextButton(onClick = onRefresh, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("换一批", style = MaterialTheme.typography.labelMedium)
+            }
+        }
 
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
