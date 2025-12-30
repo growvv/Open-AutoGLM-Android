@@ -14,8 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -47,6 +53,7 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val primaryBlue = Color(0xFF2D6BFF)
 
     val pickAvatarLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -66,37 +73,58 @@ fun LoginScreen(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+                .background(Color(0xFFF7F8FF))
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(34.dp))
         Text(
             text = "欢迎使用包子",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
-        Surface(
-            modifier =
-                Modifier
-                    .size(148.dp)
-                    .clip(CircleShape)
-                    .clickable { pickAvatarLauncher.launch(arrayOf("image/*")) },
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shadowElevation = 6.dp
-        ) {
-            AsyncImage(
-                model = uiState.avatarUri.ifBlank { R.drawable.avator },
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-        TextButton(onClick = { pickAvatarLauncher.launch(arrayOf("image/*")) }) {
-            Text("更换头像")
+        Spacer(modifier = Modifier.height(2.dp))
+        Box(contentAlignment = Alignment.BottomEnd) {
+            Surface(
+                modifier =
+                    Modifier
+                        .size(132.dp)
+                        .clip(CircleShape)
+                        .clickable { pickAvatarLauncher.launch(arrayOf("image/*")) },
+                color = Color(0xFFE9EDFF),
+                shadowElevation = 6.dp
+            ) {
+                AsyncImage(
+                    model = uiState.avatarUri.ifBlank { R.drawable.avator },
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            Surface(
+                modifier = Modifier.offset((-6).dp, (-6).dp),
+                shape = CircleShape,
+                color = primaryBlue,
+                shadowElevation = 4.dp
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .size(32.dp)
+                            .clickable { pickAvatarLauncher.launch(arrayOf("image/*")) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "更换头像",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
 
         Card(
@@ -106,7 +134,7 @@ fun LoginScreen(
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedTextField(
                     value = uiState.nickname,
@@ -128,7 +156,7 @@ fun LoginScreen(
                     value = uiState.inviteCode,
                     onValueChange = viewModel::updateInviteCode,
                     label = { Text("邀请码") },
-                    placeholder = { Text("请输入邀请码") },
+                    placeholder = { Text("123456", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier.fillMaxWidth().testTag("login_invite"),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
@@ -146,7 +174,15 @@ fun LoginScreen(
         Button(
             onClick = viewModel::login,
             enabled = !uiState.isSaving,
-            modifier = Modifier.fillMaxWidth().height(50.dp).testTag("login_button")
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("login_button"),
+            shape = RoundedCornerShape(999.dp),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = primaryBlue,
+                    contentColor = Color.White,
+                    disabledContainerColor = primaryBlue.copy(alpha = 0.45f),
+                    disabledContentColor = Color.White.copy(alpha = 0.9f)
+                )
         ) {
             Text("登录")
         }

@@ -21,6 +21,7 @@ data class AccountUiState(
 class AccountViewModel(application: Application) : AndroidViewModel(application) {
 
     private val preferencesRepository = PreferencesRepository(application)
+    private val defaultInviteCode = "123456"
 
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState: StateFlow<AccountUiState> = _uiState.asStateFlow()
@@ -94,11 +95,7 @@ class AccountViewModel(application: Application) : AndroidViewModel(application)
 
     fun login() {
         val state = _uiState.value
-        val code = state.inviteCode.trim()
-        if (code.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "请输入邀请码")
-            return
-        }
+        val code = state.inviteCode.trim().ifBlank { defaultInviteCode }
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
