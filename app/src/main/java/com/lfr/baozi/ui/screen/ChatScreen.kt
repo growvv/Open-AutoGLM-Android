@@ -74,7 +74,8 @@ import kotlinx.coroutines.withContext
 fun ChatScreen(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = viewModel(),
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToInputSettings: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -344,6 +345,25 @@ fun ChatScreen(
                         }
                     ) { Text("继续执行") }
                 }
+            }
+        )
+    }
+
+    if (uiState.showTypeIssueDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissTypeIssueDialog() },
+            title = { Text("提示") },
+            text = { Text("输入疑似遇到一点问题...\n 尝试切换输入方式吗") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.dismissTypeIssueDialog()
+                        onNavigateToInputSettings()
+                    }
+                ) { Text("确认") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissTypeIssueDialog() }) { Text("取消") }
             }
         )
     }

@@ -65,7 +65,8 @@ data class ChatUiState(
     val isDrawerOpen: Boolean = false,
     val showAccessibilityEnableDialog: Boolean = false,
     val showAppsPermissionGuideDialog: Boolean = false,
-    val appsDetectedCountForGuide: Int? = null
+    val appsDetectedCountForGuide: Int? = null,
+    val showTypeIssueDialog: Boolean = false
 )
 
 data class StepTiming(
@@ -89,6 +90,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var currentTaskJob: Job? = null
 
     private var hasShownAppsPermissionGuide: Boolean = false
+    private var hasShownTypeIssueDialogForTask: Boolean = false
+    private val recentActionTypes: ArrayDeque<String> = ArrayDeque()
     
     // 维护对话上下文（消息历史，仅在运行时有效，包含图片等大数据）
     private val messageContext = mutableListOf<NetworkChatMessage>()
@@ -345,6 +348,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
     }
 
+    fun dismissTypeIssueDialog() {
+        _uiState.value = _uiState.value.copy(showTypeIssueDialog = false)
+    }
+
     private fun startNewTask(userInput: String) {
         currentTaskJob =
             viewModelScope.launch {
@@ -356,6 +363,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 新任务启动：清空运行时上下文
                     messageContext.clear()
                     stepTimings.clear()
+                    recentActionTypes.clear()
+                    hasShownTypeIssueDialogForTask = false
                     _uiState.value = _uiState.value.copy(stepTimings = emptyList())
 
                     FloatingWindowService.getInstance()?.updatePauseStatus(false)
@@ -380,7 +389,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             taskStartedAt = startedAt,
                             taskEndedAt = null,
                             taskResultMessage = null,
-                            stepTimings = emptyList()
+                            stepTimings = emptyList(),
+                            showTypeIssueDialog = false
                         )
 
                     // 保存用户消息（确保任务列表可回看）
@@ -676,6 +686,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             ) ?: ExecuteResult(false, "ActionExecutor is null")
             val executionDuration = System.currentTimeMillis() - executionStartTime
             Log.d("ChatViewModel", "动作执行结果: success=${result.success}, message=${result.message}")
+
+            result.actionDetail?.type
+                ?.lowercase()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { actionType ->
+                    recentActionTypes.addLast(actionType)
+                    while (recentActionTypes.size > 5) {
+                        recentActionTypes.removeFirst()
+                    }
+                    val typeCount = recentActionTypes.count { it == "type" }
+                    if (!hasShownTypeIssueDialogForTask && recentActionTypes.size == 5 && typeCount >= 3) {
+                        hasShownTypeIssueDialogForTask = true
+                        _uiState.value = _uiState.value.copy(showTypeIssueDialog = true)
+                    }
+                }
             
             // 记录耗时
             val stepTotalDuration = System.currentTimeMillis() - stepStartTime

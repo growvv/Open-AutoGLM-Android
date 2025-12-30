@@ -246,6 +246,11 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                         navController.navigate(Screen.Settings.name) {
                                             launchSingleTop = true
                                         }
+                                    },
+                                    onNavigateToInputSettings = {
+                                        navController.navigate(Screen.InputSettings.name) {
+                                            launchSingleTop = true
+                                        }
                                     }
                                 )
                             }

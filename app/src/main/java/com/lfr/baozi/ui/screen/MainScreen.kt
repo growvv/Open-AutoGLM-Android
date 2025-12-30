@@ -12,11 +12,13 @@ import com.lfr.baozi.ui.viewmodel.ChatViewModel
 fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = viewModel(),
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToInputSettings: () -> Unit = {}
 ) {
     ChatScreen(
         modifier = modifier.fillMaxSize(),
         viewModel = viewModel,
-        onNavigateToSettings = onNavigateToSettings
+        onNavigateToSettings = onNavigateToSettings,
+        onNavigateToInputSettings = onNavigateToInputSettings
     )
 }
