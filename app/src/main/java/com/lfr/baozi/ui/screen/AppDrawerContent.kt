@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
@@ -222,16 +223,22 @@ private fun DrawerTopBar(
     onQueryChange: (String) -> Unit,
     onNewTask: () -> Unit
 ) {
+    val searchShape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
-            modifier = Modifier.weight(1f).height(40.dp),
-            shape = RoundedCornerShape(14.dp),
-            color = Color(0xFFF2F3F5),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(searchShape)
+                    .border(1.dp, Color(0xFFE4E6EB), searchShape),
+            shape = searchShape,
+            color = Color(0xFFF5F6F8),
             tonalElevation = 0.dp,
-            shadowElevation = 0.dp
+            shadowElevation = 1.dp
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
