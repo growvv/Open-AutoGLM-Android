@@ -188,7 +188,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                         Text(
                                             when (currentRoute) {
                                                 Screen.Settings.name -> "设置"
-                                                else -> chatUiState.currentConversationTitle ?: "AutoGLM"
+                                                else -> chatUiState.currentConversationTitle ?: "包子"
                                             },
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold
