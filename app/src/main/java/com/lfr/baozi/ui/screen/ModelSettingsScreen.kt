@@ -1,5 +1,7 @@
 package com.lfr.baozi.ui.screen
 
+import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -36,9 +38,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,7 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lfr.baozi.ui.viewmodel.SettingsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ModelSettingsScreen(
     modifier: Modifier = Modifier,
@@ -60,7 +64,13 @@ fun ModelSettingsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("模型与执行") },
+                title = {
+                    Text(
+                        text = "模型与执行",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -69,159 +79,161 @@ fun ModelSettingsScreen(
             )
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier =
-                Modifier
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item("server_title") {
-                Text(
-                    text = "服务端",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-            }
-
-            item("server_card") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    SettingsRow(
-                        icon = Icons.Default.Key,
-                        iconBg = androidx.compose.ui.graphics.Color(0xFFFFB300),
-                        title = "自定义服务端",
-                        subtitle =
-                            if (uiState.customBaseUrl.isBlank() && uiState.customApiKey.isBlank()) {
-                                "未设置"
-                            } else {
-                                uiState.customBaseUrl.ifBlank { "已设置" }
-                            },
-                        tag = "settings_item_backend",
-                        onClick = onNavigateToBackendSettings
+        CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(paddingValues)
+                        .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 12.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item("server_title") {
+                    Text(
+                        text = "服务端",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
-            }
 
-            item("exec_title") {
-                Text(
-                    text = "执行",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-            }
-
-            item("exec_card") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                item("server_card") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(34.dp)
-                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                                    .background(androidx.compose.ui.graphics.Color(0xFF4CAF50)),
-                            contentAlignment = androidx.compose.ui.Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayCircle,
-                                contentDescription = null,
-                                tint = androidx.compose.ui.graphics.Color.White
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(text = "最大步数", style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                text = "范围 1~50，建议 20~30",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        SettingsRow(
+                            icon = Icons.Default.Key,
+                            iconBg = androidx.compose.ui.graphics.Color(0xFFFFB300),
+                            title = "自定义服务端",
+                            subtitle =
+                                if (uiState.customBaseUrl.isBlank() && uiState.customApiKey.isBlank()) {
+                                    "未设置"
+                                } else {
+                                    uiState.customBaseUrl.ifBlank { "已设置" }
+                                },
+                            tag = "settings_item_backend",
+                            onClick = onNavigateToBackendSettings
+                        )
                     }
+                }
 
-                    HorizontalDivider()
-
-                    OutlinedTextField(
-                        value = uiState.maxStepsInput,
-                        onValueChange = { input ->
-                            val filtered = input.filter { it.isDigit() }
-                            viewModel.updateMaxStepsInput(filtered)
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(14.dp).testTag("settings_maxSteps"),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        placeholder = { Text("例如：20") },
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                        colors =
-                            OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-                                unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
-                            )
+                item("exec_title") {
+                    Text(
+                        text = "执行",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
-            }
 
-            item("save") {
-                Button(
-                    onClick = { viewModel.saveSettings() },
-                    modifier = Modifier.fillMaxWidth().height(48.dp).testTag("settings_save"),
-                    enabled = !uiState.isLoading
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("保存")
+                item("exec_card") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .size(34.dp)
+                                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                                        .background(androidx.compose.ui.graphics.Color(0xFF4CAF50)),
+                                contentAlignment = androidx.compose.ui.Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayCircle,
+                                    contentDescription = null,
+                                    tint = androidx.compose.ui.graphics.Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(text = "最大步数", style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    text = "范围 1~50，建议 20~30",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        HorizontalDivider()
+
+                        OutlinedTextField(
+                            value = uiState.maxStepsInput,
+                            onValueChange = { input ->
+                                val filtered = input.filter { it.isDigit() }
+                                viewModel.updateMaxStepsInput(filtered)
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(14.dp).testTag("settings_maxSteps"),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            placeholder = { Text("例如：20") },
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                            colors =
+                                OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                                )
+                        )
                     }
                 }
-            }
 
-            item("result") {
-                uiState.saveSuccess?.let {
-                    if (it) {
+                item("save") {
+                    Button(
+                        onClick = { viewModel.saveSettings() },
+                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("settings_save"),
+                        enabled = !uiState.isLoading
+                    ) {
+                        if (uiState.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("保存")
+                        }
+                    }
+                }
+
+                item("result") {
+                    uiState.saveSuccess?.let {
+                        if (it) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors =
+                                    CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                            ) {
+                                Text(text = "设置已保存", modifier = Modifier.padding(12.dp))
+                            }
+                        }
+                    }
+
+                    uiState.error?.let { error ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors =
                                 CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
                                 )
                         ) {
-                            Text(text = "设置已保存", modifier = Modifier.padding(12.dp))
-                        }
-                    }
-                }
-
-                uiState.error?.let { error ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors =
-                            CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            )
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(text = error)
-                            Button(onClick = { viewModel.clearError() }) { Text("关闭") }
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(text = error)
+                                Button(onClick = { viewModel.clearError() }) { Text("关闭") }
+                            }
                         }
                     }
                 }

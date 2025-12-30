@@ -1,6 +1,8 @@
 package com.lfr.baozi.ui.screen
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -22,14 +24,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lfr.baozi.data.AppInfo
 import com.lfr.baozi.ui.viewmodel.AppsViewModel
+import androidx.compose.runtime.CompositionLocalProvider
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AppsScreen(
     modifier: Modifier = Modifier,
@@ -45,7 +49,13 @@ fun AppsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("应用管理") },
+                title = {
+                    Text(
+                        text = "应用管理",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
@@ -61,92 +71,98 @@ fun AppsScreen(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFF4F5F7))
-        ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateSearchQuery(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .heightIn(min = 52.dp),
-                placeholder = { Text("搜索应用名称或包名", style = MaterialTheme.typography.bodyMedium) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
-                trailingIcon = {
-                    if (searchQuery.isNotBlank()) {
-                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                            Icon(Icons.Default.Close, contentDescription = "清除")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .background(MaterialTheme.colorScheme.background)
             ) {
-                Text(
-                    text = if (isLoading) "加载中…" else "已检测到 ${apps.size} 个应用",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.updateSearchQuery(it) },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .heightIn(min = 52.dp),
+                    placeholder = { Text("搜索应用名称或包名", style = MaterialTheme.typography.bodyMedium) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                                Icon(Icons.Default.Close, contentDescription = "清除")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors =
+                        OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                 )
 
-                FilterChip(
-                    selected = showSystemApps,
-                    onClick = { viewModel.toggleShowSystemApps() },
-                    label = { Text("系统应用") }
-                )
-            }
-
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else if (apps.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (searchQuery.isNotBlank()) "未找到匹配的应用" else "未找到已安装的应用",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = if (isLoading) "加载中…" else "已检测到 ${apps.size} 个应用",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    FilterChip(
+                        selected = showSystemApps,
+                        onClick = { viewModel.toggleShowSystemApps() },
+                        label = { Text("系统应用") }
+                    )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(apps, key = { it.packageName }) { app ->
-                        AppCardItem(
-                            app = app,
-                            onToggleEnabled = { enabled ->
-                                viewModel.toggleAppEnabled(app.packageName, enabled)
-                            }
+
+                if (isLoading) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (apps.isEmpty()) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "未找到匹配的应用" else "未找到已安装的应用",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(apps, key = { it.packageName }) { app ->
+                            AppCardItem(
+                                app = app,
+                                onToggleEnabled = { enabled ->
+                                    viewModel.toggleAppEnabled(app.packageName, enabled)
+                                }
+                            )
+                        }
                     }
                 }
             }
