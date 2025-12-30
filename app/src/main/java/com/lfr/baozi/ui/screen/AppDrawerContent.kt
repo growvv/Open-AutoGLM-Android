@@ -21,11 +21,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
@@ -60,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
@@ -104,7 +107,7 @@ fun AppDrawerContent(
         val overlayActive = menuState != null || renameTarget != null || deleteTarget != null
         val blurAmount = if (overlayActive) 14.dp else 0.dp
 
-        BoxWithConstraints(modifier = Modifier.fillMaxHeight()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxHeight().statusBarsPadding()) {
             val maxWidthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
             val maxHeightPx = constraints.maxHeight.toFloat().coerceAtLeast(1f)
 
@@ -223,36 +226,54 @@ private fun DrawerTopBar(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextField(
-            value = query,
-            onValueChange = onQueryChange,
+        Surface(
             modifier = Modifier.weight(1f).height(40.dp),
-            singleLine = true,
-            placeholder = { Text("搜索…", style = MaterialTheme.typography.bodySmall) },
-            leadingIcon = {
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFFF2F3F5),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            },
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, lineHeight = 16.sp),
-            colors =
-                TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFFF2F3F5),
-                    unfocusedContainerColor = Color(0xFFF2F3F5),
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent
-                ),
-            shape = RoundedCornerShape(14.dp)
-        )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(modifier = Modifier.weight(1f)) {
+                    if (query.isBlank()) {
+                        Text(
+                            text = "搜索…",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, lineHeight = 16.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    BasicTextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        singleLine = true,
+                        textStyle =
+                            MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 14.sp,
+                                lineHeight = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                        cursorBrush = SolidColor(Color(0xFF2D6BFF)),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
         Spacer(modifier = Modifier.width(10.dp))
         IconButton(onClick = onNewTask, modifier = Modifier.size(40.dp).testTag("drawer_new_task")) {
             Box(
                 modifier =
                     Modifier
-                        .size(36.dp)
+                        .size(40.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF4CAF50)),
                 contentAlignment = Alignment.Center
@@ -423,7 +444,7 @@ private fun DrawerContextMenuOverlay(
     val paddingPx = with(density) { 12.dp.toPx() }
     val gapPx = with(density) { 10.dp.toPx() }
 
-    val desiredX = state.anchorBounds.left
+    val desiredX = state.anchorBounds.left + (state.anchorBounds.width / 2f) - (menuWidthPx / 2f)
     val xPx = desiredX.coerceIn(paddingPx, (maxWidthPx - menuWidthPx - paddingPx).coerceAtLeast(paddingPx))
 
     val placeAboveY = state.anchorBounds.top - menuHeightPx - gapPx
@@ -576,9 +597,9 @@ private fun DrawerMenuRow(
         modifier = rowModifier.padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = titleColor, modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(10.dp))
         Text(text = title, style = MaterialTheme.typography.bodyMedium, color = titleColor)
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(imageVector = icon, contentDescription = null, tint = titleColor, modifier = Modifier.size(18.dp))
     }
 }
 
