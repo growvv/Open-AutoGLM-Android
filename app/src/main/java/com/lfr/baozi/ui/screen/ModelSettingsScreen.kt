@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -191,10 +192,19 @@ fun ModelSettingsScreen(
                 }
 
                 item("save") {
+                    val primaryBlue = androidx.compose.ui.graphics.Color(0xFF2D6BFF)
                     Button(
                         onClick = { viewModel.saveSettings() },
                         modifier = Modifier.fillMaxWidth().height(48.dp).testTag("settings_save"),
-                        enabled = !uiState.isLoading
+                        enabled = !uiState.isLoading,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = primaryBlue,
+                                contentColor = androidx.compose.ui.graphics.Color.White,
+                                disabledContainerColor = primaryBlue.copy(alpha = 0.45f),
+                                disabledContentColor = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f)
+                            )
                     ) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
