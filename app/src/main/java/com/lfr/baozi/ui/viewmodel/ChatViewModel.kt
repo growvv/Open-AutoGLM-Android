@@ -147,10 +147,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             // 如果没有对话，创建一个默认对话
-            val initialConversations = conversationRepository.conversations.first()
-            if (initialConversations.isEmpty()) {
-                conversationRepository.createConversation()
-            }
+            // 不主动创建“新任务”占位记录：历史仅记录真实已执行任务
         }
     }
 
@@ -264,12 +261,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             stepTimings.clear()
         }
     }
+
+    fun openNewTaskDraft() {
+        stopTask()
+        messageContext.clear()
+        stepTimings.clear()
+        recentActionTypes.clear()
+        hasShownTypeIssueDialogForTask = false
+        conversationRepository.openDraftConversation(title = "新任务")
+        _uiState.value =
+            _uiState.value.copy(
+                currentConversationId = null,
+                currentConversationTitle = "新任务",
+                messages = emptyList(),
+                isLoading = false,
+                error = null,
+                isPaused = false,
+                taskStatus = ConversationStatus.IDLE,
+                taskStartedAt = null,
+                taskEndedAt = null,
+                taskResultMessage = null,
+                stepTimings = emptyList(),
+                showTypeIssueDialog = false
+            )
+    }
     
     /**
      * 切换对话
      */
     fun switchConversation(conversationId: String,conversationTitle:String) {
         conversationRepository.switchConversation(conversationId)
+        conversationRepository.setCurrentConversationTitle(conversationTitle)
         messageContext.clear()
         stepTimings.clear()
         _uiState.value = _uiState.value.copy(isDrawerOpen = false, currentConversationTitle = conversationTitle)

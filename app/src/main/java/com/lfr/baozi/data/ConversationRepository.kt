@@ -36,15 +36,31 @@ class ConversationRepository(context: Context) {
 
     private val _currentConversationTitle = MutableStateFlow<String?>(null)
     val currentConversationTitle: Flow<String?> = _currentConversationTitle.asStateFlow()
+
+    private fun Conversation.isPlaceholderDraft(): Boolean {
+        if (isPinned) return false
+        val isNeverUsed =
+            status == ConversationStatus.IDLE.name &&
+                taskStartedAt == null &&
+                taskEndedAt == null &&
+                taskResultMessage.isNullOrBlank() &&
+                createdAt == updatedAt
+        if (!isNeverUsed) return false
+        return title == "新任务" || title == "新对话"
+    }
     
     init {
         // 初始化时加载对话列表并设置默认选中的对话
         coroutineScope.launch {
             val allConversations = conversationDao.getAllConversations().first()
             if (allConversations.isNotEmpty()) {
-                val conversation = allConversations.first()
-                _currentConversationId.value = conversation.id
-                _currentConversationTitle.value = conversation.title
+                val conversation =
+                    allConversations.firstOrNull { !it.isPlaceholderDraft() }
+                        ?: allConversations.first()
+                if (!conversation.isPlaceholderDraft()) {
+                    _currentConversationId.value = conversation.id
+                    _currentConversationTitle.value = conversation.title
+                }
             }
         }
     }
@@ -65,6 +81,15 @@ class ConversationRepository(context: Context) {
         _currentConversationId.value = conversation.id
         _currentConversationTitle.value = title
         return conversation
+    }
+
+    fun openDraftConversation(title: String = "新任务") {
+        _currentConversationId.value = null
+        _currentConversationTitle.value = title
+    }
+
+    fun setCurrentConversationTitle(title: String?) {
+        _currentConversationTitle.value = title
     }
     
     /**

@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                             onNewTask = {
                                 scope.launch {
                                     drawerState.close()
-                                    chatViewModel.createNewConversation()
+                                    chatViewModel.openNewTaskDraft()
                                 }
                             },
                             onRenameTask = { id, title -> chatViewModel.renameConversation(id, title) },
