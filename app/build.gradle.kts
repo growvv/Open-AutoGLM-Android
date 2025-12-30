@@ -19,6 +19,18 @@ android {
         versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val envBaseUrl =
+            (System.getenv("PHONE_AGENT_BASE_URL") ?: System.getenv("BAOZI_DEFAULT_BASE_URL"))
+                ?.trim()
+                .orEmpty()
+        val defaultBaseUrl =
+            if (envBaseUrl.isNotBlank()) envBaseUrl else "http://127.0.0.1:28100/v1"
+
+        fun escapeForBuildConfig(value: String): String =
+            value.replace("\\", "\\\\").replace("\"", "\\\"")
+
+        buildConfigField("String", "DEFAULT_BASE_URL", "\"${escapeForBuildConfig(defaultBaseUrl)}\"")
     }
 
     signingConfigs {
@@ -73,6 +85,7 @@ android {
     buildFeatures {
         compose = true
         aidl = true
+        buildConfig = true
     }
 }
 

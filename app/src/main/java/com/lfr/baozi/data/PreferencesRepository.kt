@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.lfr.baozi.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -58,7 +59,7 @@ enum class AppsFilterMode(val value: Int) {
 class PreferencesRepository(private val context: Context) {
 
     companion object {
-        const val DEFAULT_BASE_URL = "http://47.99.92.117:28100/v1"
+        val DEFAULT_BASE_URL: String = BuildConfig.DEFAULT_BASE_URL
         const val DEFAULT_MODEL_NAME = "autoglm-phone-9b"
         const val DEFAULT_MAX_STEPS = 20
         const val DEFAULT_NICKNAME = "包子"

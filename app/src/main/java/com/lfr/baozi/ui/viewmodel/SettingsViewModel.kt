@@ -7,7 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lfr.baozi.data.InputMode
 import com.lfr.baozi.data.PreferencesRepository
-import com.lfr.baozi.data.PreferencesRepository.Companion.DEFAULT_BASE_URL
 import com.lfr.baozi.data.PreferencesRepository.Companion.DEFAULT_MAX_STEPS
 import com.lfr.baozi.data.PreferencesRepository.Companion.DEFAULT_MODEL_NAME
 import com.lfr.baozi.service.FloatingWindowService
