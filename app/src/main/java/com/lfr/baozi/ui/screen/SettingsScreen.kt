@@ -99,10 +99,10 @@ fun SettingsScreen(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 12.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+                .background(Color(0xFFF4F5F7))
+                .padding(horizontal = 14.dp),
+        contentPadding = PaddingValues(top = 10.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item(key = "permissions") {
             SettingsGroupCard(
@@ -177,7 +177,7 @@ fun SettingsScreen(
                             title = "输入方式",
                             subtitle =
                                 when (uiState.inputMode) {
-                                    InputMode.SET_TEXT -> "直接设置文本"
+                                    InputMode.SET_TEXT -> "直接设置文本（推荐）"
                                     InputMode.PASTE -> "复制粘贴（推荐）"
                                     InputMode.IME ->
                                         when {
@@ -294,12 +294,12 @@ private fun SettingsGroupCard(
     title: String,
     items: List<SettingsItem>
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = title,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp)
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -322,13 +322,13 @@ private fun SettingsRow(item: SettingsItem) {
             taggedModifier
                 .fillMaxWidth()
                 .clickable(onClick = item.onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier =
                 Modifier
-                    .size(34.dp)
+                    .size(32.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(item.iconBg),
             contentAlignment = Alignment.Center

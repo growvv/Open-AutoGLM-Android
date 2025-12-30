@@ -26,7 +26,7 @@ data class SettingsUiState(
     val isAccessibilityServiceRunning: Boolean = false,
     val floatingWindowEnabled: Boolean = false,
     val hasOverlayPermission: Boolean = false,
-    val inputMode: InputMode = InputMode.PASTE,
+    val inputMode: InputMode = InputMode.SET_TEXT,
     val isImeEnabled: Boolean = false,
     val isImeSelected: Boolean = false,
     val imageCompressionEnabled: Boolean = false,
