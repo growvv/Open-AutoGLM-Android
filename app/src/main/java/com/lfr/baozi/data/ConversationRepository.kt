@@ -199,8 +199,29 @@ class ConversationRepository(context: Context) {
      */
     suspend fun renameConversation(conversationId: String, newTitle: String) {
         val conversation = conversationDao.getConversationById(conversationId) ?: return
-        val updatedConversation = conversation.copy(title = newTitle)
-        _currentConversationTitle.value = newTitle
+        val updatedConversation =
+            conversation.copy(
+                title = newTitle,
+                updatedAt = System.currentTimeMillis()
+            )
+        if (_currentConversationId.value == conversationId) {
+            _currentConversationTitle.value = newTitle
+        }
+        conversationDao.updateConversation(updatedConversation)
+    }
+
+    /**
+     * 置顶/取消置顶
+     */
+    suspend fun setConversationPinned(conversationId: String, pinned: Boolean) {
+        val conversation = conversationDao.getConversationById(conversationId) ?: return
+        val now = System.currentTimeMillis()
+        val updatedConversation =
+            conversation.copy(
+                isPinned = pinned,
+                pinnedAt = if (pinned) now else null,
+                updatedAt = now
+            )
         conversationDao.updateConversation(updatedConversation)
     }
 }

@@ -23,7 +23,7 @@ interface ConversationDao {
     @Query("DELETE FROM conversations WHERE id = :conversationId")
     suspend fun deleteConversation(conversationId: String)
 
-    @Query("SELECT * FROM conversations ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM conversations ORDER BY isPinned DESC, pinnedAt DESC, updatedAt DESC")
     fun getAllConversations(): Flow<List<Conversation>>
 
     @Query("SELECT * FROM conversations WHERE id = :conversationId")

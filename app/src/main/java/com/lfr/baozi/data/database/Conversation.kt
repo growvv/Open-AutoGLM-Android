@@ -12,6 +12,8 @@ data class Conversation(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val title: String = "新对话",
     val status: String = ConversationStatus.IDLE.name,
+    val isPinned: Boolean = false,
+    val pinnedAt: Long? = null,
     val taskStartedAt: Long? = null,
     val taskEndedAt: Long? = null,
     val taskResultMessage: String? = null,
