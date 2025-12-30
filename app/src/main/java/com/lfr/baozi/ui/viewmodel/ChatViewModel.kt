@@ -285,6 +285,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             stepTimings.clear()
         }
     }
+
+    fun renameConversation(conversationId: String, newTitle: String) {
+        val normalized = newTitle.trim()
+        if (normalized.isBlank()) return
+        viewModelScope.launch {
+            conversationRepository.renameConversation(conversationId, normalized)
+        }
+    }
+
+    fun setConversationPinned(conversationId: String, pinned: Boolean) {
+        viewModelScope.launch {
+            conversationRepository.setConversationPinned(conversationId, pinned)
+        }
+    }
     
     /**
      * 打开/关闭侧边栏

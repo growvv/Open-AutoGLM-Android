@@ -138,6 +138,14 @@ class MainActivity : ComponentActivity(), Shizuku.OnBinderReceivedListener,
                                     chatViewModel.switchConversation(id, title)
                                 }
                             },
+                            onNewTask = {
+                                scope.launch {
+                                    drawerState.close()
+                                    chatViewModel.createNewConversation()
+                                }
+                            },
+                            onRenameTask = { id, title -> chatViewModel.renameConversation(id, title) },
+                            onSetPinned = { id, pinned -> chatViewModel.setConversationPinned(id, pinned) },
                             onDeleteTask = { id -> chatViewModel.deleteConversation(id) }
                         )
                     }
