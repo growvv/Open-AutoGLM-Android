@@ -1,176 +1,70 @@
-# Open-AutoGLM-Android
+# Baozi (Open-AutoGLM-Android)
 
 English | [中文](README.md)
 
-An Android smartphone automation assistant based on Accessibility Service, using AutoGLM vision language model to perform phone operations through natural language instructions.
+An Android automation agent built on Accessibility Service. You describe a task in natural language; the app captures screenshots → calls an OpenAI-compatible backend → performs taps/swipes/typing on your phone.
 
-## Features
+## Screenshots
 
-- 🤖 **AI-Powered Automation**: Uses AutoGLM vision language model to understand screen content and perform operations
-- 📱 **No ADB Required**: Completely based on Android Accessibility Service, no computer connection needed
-- 🎯 **Natural Language Control**: Describe tasks in natural language, AI automatically plans and executes
-- 🧾 **Task Timeline Feed**: Shows progress as a feed (thoughts/actions/screenshots/status)
-- 🛠️ **Easy to Use**: Simple interface, just input task descriptions
+<table>
+  <tr>
+    <td><img src="asserts/index.jpeg" width="240" alt="Home" /></td>
+    <td><img src="asserts/menu.png" width="240" alt="Drawer" /></td>
+    <td><img src="asserts/settings.png" width="240" alt="Settings" /></td>
+  </tr>
+  <tr>
+    <td><img src="asserts/login.jpeg" width="240" alt="Login" /></td>
+    <td><img src="asserts/custom.jpeg" width="240" alt="Custom backend" /></td>
+    <td><img src="asserts/sidecar.png" width="240" alt="History" /></td>
+  </tr>
+</table>
 
-## Interface Demo
+## Highlights
 
-![Interface Demo](interface.jpg)
+- Task timeline feed (thoughts/actions/screenshots/status)
+- Task list with history / pin / rename / delete
+- Configurable max steps (1–50, default 20), input method, and backend
+- OpenAI-compatible backend (vLLM etc.), API key optional
 
-## System Requirements
+## Quick Start (Users)
 
-- **Android Version**: Android 11 (API 30) or higher
-- **Device Requirements**: Android device with Accessibility Service support
-- **Network Requirements**: Internet connection required to access AutoGLM API
-- **Permission Requirements**:
-  - Accessibility Service permission (required)
-  - Network access permission (required)
-  - Query all apps permission (for launching apps)
+1. Install the APK and launch the app
+2. Login: invite code can be left empty (defaults to `123456`); nickname/avatar are editable later
+3. Open the drawer → `Settings`
+4. Enable the Accessibility Service (recommended: set battery policy to Unrestricted)
+5. Go back to Home and send a task, e.g. “Open browser and search weather”
 
-## Usage Steps
+## Quick Start (Developers)
 
-### 1. Install the App
+1. Optional: inject the built-in default backend at build time:
+   - `export PHONE_AGENT_BASE_URL="http://<your-server>/v1"`
+2. Build: `./gradlew :app:assembleDebug`
+3. Install: `./gradlew :app:installDebug`
+4. Device tests: `./gradlew :app:connectedDebugAndroidTest`
+5. More deploy/smoke details: `docs/deploy.md`
 
-Download the APK file from the Releases page and install it on your Android device.
+## Settings
 
-### 2. Login (Invite Code)
+- `Settings` → `Model & Execution`
+  - Max steps: 1–50 (recommended 20–30)
+  - Server: only shows “Custom backend” (built-in defaults are hidden)
+- `Settings` → `Model & Execution` → `Custom backend`
+  - `Base URL`: your OpenAI-compatible `/v1` endpoint (empty uses built-in default)
+  - `API Key`: optional (empty means no `Authorization` header)
+  - “Reset” clears overrides
 
-On first launch, the app shows a login page. An **invite code** is required (currently only checks non-empty; validation is planned).
-
-- Default nickname: Baozi (editable)
-- Default avatar: `avator.jpeg` (editable)
-- After login, open the drawer and tap the avatar+nickname chip to edit your profile
-
-### 3. Configure Model & Backend
-
-1. Open the app, open the drawer, and go to the "Settings" page
-2. If your backend requires auth (e.g. Zhipu AI https://open.bigmodel.cn/), apply for an API Key first
-3. In “Model & Execution”, configure:
-   - **Max Steps**: maximum steps (1~50, default 20)
-4. Optional: to override backend settings, go to “Model & Execution” → “自定义服务端 (Custom Backend)”
-   - **Base URL**: leave blank to use default `http://47.99.92.117:28100/v1`
-   - **API Key**: optional (blank means no `Authorization` header)
-   - “Reset to defaults” clears overrides
-
-#### Using vLLM / OpenAI-compatible API
-
-If your backend is a vLLM OpenAI-compatible endpoint (e.g. `http://47.99.92.117:28100/`), set:
-- **Base URL**: `http://47.99.92.117:28100/v1` (must include `/v1`; blank uses default)
-- **API Key**: optional (required only if your backend enforces auth)
-
-### 4. Enable Accessibility Service
-
-1. On the settings page, click the "Go to Settings" button
-2. Find "AutoGLM Android" in the system accessibility settings
-3. Enable the accessibility service
-4. Return to the app and confirm the status shows "Enabled"
-5. In system settings, set this app's **battery usage/battery policy** to **Unrestricted/Not restricted** to prevent the system from killing background tasks
-
-### 5. Start Using
-
-1. Return to the Home (task) page
-2. Enter your task description in the input box, for example:
-   - "Open QQ"
-   - "Open QQ then open xxx group"
-   - "Search for milk tea on Meituan"
-   - "Open WeChat and send a message to Zhang San"
-3. Click the "Send" button
-4. AI will automatically analyze the screen and perform operations
-5. A Toast notification will be displayed when the task is completed
-
-### 6. Delete Task History
-
-- Open the drawer and delete tasks from the history list
-
-## Supported Operations
-
-- **Launch**: Launch an app
-- **Tap**: Tap screen coordinates
-- **Type**: Input text
-- **Swipe**: Swipe the screen
-- **Back**: Go back to previous page
-- **Home**: Return to home screen
-- **Long Press**: Long press
-- **Double Tap**: Double tap
-- **Wait**: Wait
-
-## Notes
-
-1. **Accessibility Service**: The app requires accessibility service permission to work properly, please make sure it's enabled
-2. **Screenshot Function**: Requires Android 11 or higher, may not work on lower versions
-3. **Emulator Limitations**: Screenshot function may not work properly when running on Android emulators, it's recommended to test on real devices
-4. **Network Connection**: Stable network connection is required to access AutoGLM API
-5. **API Costs**: Using AutoGLM API may incur costs, please check Zhipu AI platform pricing information
-
-## FAQ
-
-### Q: Why can't I get screenshots?
-
-A: Please ensure:
-- Android version is 11 (API 30) or higher
-- Accessibility service is enabled
-- If on an emulator, screenshot function may not work properly
-
-### Q: Why did the task execution fail?
-
-A: Possible reasons:
-- Accessibility service is not enabled
-- API Key configuration is incorrect
-- Network connection issues
-- Task description is not clear enough
- - The system's battery optimization for this app is not set to "Unrestricted", causing background tasks to be killed
-
-### Q: How can I view the AI's thinking process?
-
-A: In the task detail feed, tap the “Thoughts” card to expand/collapse.
-
-## Technical Architecture
-
-- **UI Framework**: Jetpack Compose
-- **Architecture Pattern**: MVVM (Model-View-ViewModel)
-- **Network Requests**: Retrofit + OkHttp
-- **Data Storage**: DataStore Preferences
-- **Async Processing**: Kotlin Coroutines + Flow
-- **Accessibility Service**: Android AccessibilityService API
-
-## Development
-
-### Build Requirements
-
-- Android Studio Hedgehog or higher
-- JDK 11 or higher
-- Android SDK API 30 or higher
-
-### Build Steps
+## Build & Install
 
 ```bash
-# Clone the project
-git clone https://github.com/xinzezhu/Open-AutoGLM-Android.git
-
-# Open the project
-cd Open-AutoGLM-Android
-
-# Open the project in Android Studio and build
+./gradlew :app:assembleDebug
+./gradlew :app:installDebug
 ```
+
+## Docs
+
+- Deploy + smoke tests: `docs/deploy.md`
+- Security & privacy (static audit): `docs/SECURITY_AUDIT.md`
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Thanks to the [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM) project for inspiration
-- Thanks to Zhipu AI for providing the AutoGLM model
-
-## Support the Author
-
-If this project is helpful to you, feel free to buy me a coffee ☕
-
-![Pay](pay.jpg)
-
-## Community
-
-QQ Group: 734202636
-
----
-
-**Note**: This project is for learning and research purposes only. When using this app, please comply with relevant laws and regulations and platform terms of use.
+MIT, see `LICENSE`.
