@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import org.junit.Assume
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -19,9 +20,16 @@ class VllmBackendSmokeTest {
 
     @Test
     fun vllmModelsEndpointAccessibleWithoutApiKey() {
+        val baseUrl = BuildConfig.DEFAULT_BASE_URL.trim().trimEnd('/')
+        Assume.assumeTrue(
+            "Set PHONE_AGENT_BASE_URL (or BAOZI_DEFAULT_BASE_URL) at build time to run this test",
+            baseUrl.isNotBlank() && baseUrl != "http://127.0.0.1:28100/v1"
+        )
+
+        val modelsUrl = "$baseUrl/models"
         val client = OkHttpClient.Builder().build()
         val request = Request.Builder()
-            .url("http://47.99.92.117:28100/v1/models")
+            .url(modelsUrl)
             .get()
             .build()
 
@@ -124,4 +132,3 @@ class VllmBackendSmokeTest {
         }
     }
 }
-
