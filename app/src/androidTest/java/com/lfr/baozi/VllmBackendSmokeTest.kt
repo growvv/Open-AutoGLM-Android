@@ -86,6 +86,49 @@ class VllmBackendSmokeTest {
     }
 
     @Test
+    fun modelClientAppendsV1WhenBaseUrlHasNoPath() = runBlocking {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody(
+                        """
+                        {
+                          "id": "test",
+                          "choices": [
+                            {
+                              "index": 0,
+                              "message": { "role": "assistant", "content": "finish(message=ok)" },
+                              "finish_reason": "stop"
+                            }
+                          ],
+                          "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+                        }
+                        """.trimIndent()
+                    )
+            )
+
+            val hostOnlyBaseUrl = server.url("/").toString().trimEnd('/')
+            val modelClient = ModelClient(context = context, baseUrl = hostOnlyBaseUrl, apiKey = "")
+            val messages =
+                listOf(
+                    ChatMessage(role = "system", content = listOf(ContentItem(type = "text", text = "test"))),
+                    ChatMessage(role = "user", content = listOf(ContentItem(type = "text", text = "hi")))
+                )
+
+            modelClient.request(messages = messages, modelName = "autoglm-phone-9b")
+            val recorded = server.takeRequest()
+            assertEquals("/v1/chat/completions", recorded.path)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun modelClientSendsAuthorizationHeaderWhenApiKeyProvided() = runBlocking {
         val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
         val server = MockWebServer()

@@ -12,6 +12,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.ByteArrayOutputStream
+import java.net.URI
 import java.util.concurrent.TimeUnit
 
 data class ModelResponse(
@@ -70,6 +71,17 @@ class ModelClient(
         if (!fixedUrl.startsWith("http://") && !fixedUrl.startsWith("https://")) {
             fixedUrl = "https://$fixedUrl"
         }
+
+        // 常见情况：用户填了 host:port（未带 /v1），则自动补全为 OpenAI 兼容的 /v1 基址
+        fixedUrl =
+            try {
+                val uri = URI(fixedUrl)
+                val path = uri.path.orEmpty()
+                val hasNoPath = path.isBlank() || path == "/"
+                if (hasNoPath) fixedUrl.trimEnd('/') + "/v1" else fixedUrl
+            } catch (_: Exception) {
+                fixedUrl
+            }
         return fixedUrl
     }
     

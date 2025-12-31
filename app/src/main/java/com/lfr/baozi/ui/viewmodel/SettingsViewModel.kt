@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val customApiKey: String = "",
     val customBaseUrl: String = "",
-    val modelName: String = DEFAULT_MODEL_NAME,
+    val modelName: String = "",
     val maxStepsInput: String = DEFAULT_MAX_STEPS.toString(),
     val isAccessibilityEnabled: Boolean = false,
     val isAccessibilityServiceRunning: Boolean = false,
@@ -61,8 +61,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         viewModelScope.launch {
-            preferencesRepository.modelName.collect { modelName ->
-                _uiState.value = _uiState.value.copy(modelName = modelName ?: DEFAULT_MODEL_NAME)
+            preferencesRepository.customModelName.collect { modelName ->
+                _uiState.value = _uiState.value.copy(modelName = modelName)
             }
         }
         viewModelScope.launch {
@@ -184,7 +184,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 val parsedMaxSteps = _uiState.value.maxStepsInput.trim().toIntOrNull() ?: DEFAULT_MAX_STEPS
                 val clampedMaxSteps = parsedMaxSteps.coerceIn(1, 50)
-                preferencesRepository.saveModelName(_uiState.value.modelName)
                 preferencesRepository.saveMaxSteps(clampedMaxSteps)
                 _uiState.value = _uiState.value.copy(isLoading = false, saveSuccess = true)
             } catch (e: Exception) {
@@ -199,6 +198,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             try {
                 preferencesRepository.saveCustomApiKey(_uiState.value.customApiKey)
                 preferencesRepository.saveCustomBaseUrl(_uiState.value.customBaseUrl)
+                preferencesRepository.saveModelName(_uiState.value.modelName)
                 _uiState.value = _uiState.value.copy(isLoading = false, saveSuccess = true)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false, error = "保存失败: ${e.message}")
@@ -215,6 +215,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     _uiState.value.copy(
                         customApiKey = "",
                         customBaseUrl = "",
+                        modelName = "",
                         isLoading = false,
                         saveSuccess = true
                     )

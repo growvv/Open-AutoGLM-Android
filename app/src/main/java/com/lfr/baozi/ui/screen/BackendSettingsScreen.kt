@@ -156,6 +156,23 @@ fun BackendSettingsScreen(
                             )
 
                             OutlinedTextField(
+                                value = uiState.modelName,
+                                onValueChange = { viewModel.updateModelName(it) },
+                                label = { Text("Model Name") },
+                                placeholder = { Text("autoglm-phone-9b") },
+                                modifier = Modifier.fillMaxWidth().testTag("settings_custom_modelName"),
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp),
+                                colors =
+                                    OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
+                                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent
+                                    )
+                            )
+
+                            OutlinedTextField(
                                 value = uiState.customApiKey,
                                 onValueChange = { viewModel.updateApiKey(it) },
                                 label = { Text("API Key") },

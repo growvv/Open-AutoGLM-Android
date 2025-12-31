@@ -74,6 +74,10 @@ class PreferencesRepository(private val context: Context) {
         preferences[PreferenceKeys.BASE_URL].orEmpty()
     }
 
+    val customModelName: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferenceKeys.MODEL_NAME].orEmpty()
+    }
+
     val nickname: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[PreferenceKeys.NICKNAME]?.takeIf { it.isNotBlank() } ?: DEFAULT_NICKNAME
     }
@@ -144,7 +148,9 @@ class PreferencesRepository(private val context: Context) {
 
     suspend fun saveModelName(modelName: String) {
         context.dataStore.edit { preferences ->
-            preferences[PreferenceKeys.MODEL_NAME] = modelName
+            val normalized = modelName.trim()
+            if (normalized.isBlank()) preferences.remove(PreferenceKeys.MODEL_NAME)
+            else preferences[PreferenceKeys.MODEL_NAME] = normalized
         }
     }
 
@@ -152,6 +158,7 @@ class PreferencesRepository(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences.remove(PreferenceKeys.API_KEY)
             preferences.remove(PreferenceKeys.BASE_URL)
+            preferences.remove(PreferenceKeys.MODEL_NAME)
         }
     }
 
